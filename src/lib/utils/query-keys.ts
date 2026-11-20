@@ -23,6 +23,34 @@ export const QUERY_KEYS = {
     me: ["me"] as const,
     ...createQueryKeys("users"),
   },
+  // Vendor app (seller API). One namespace per feature; screens and hooks must
+  // use these instead of inlining arrays.
+  seller: {
+    shop: ["seller", "shop"] as const,
+    dashboard: ["seller", "dashboard"] as const,
+    orders: {
+      all: ["seller", "orders"] as const,
+      list: (params?: SearchParams) =>
+        ["seller", "orders", "list", params] as const,
+      detail: (id: string | number) =>
+        ["seller", "orders", "detail", String(id)] as const,
+    },
+    products: {
+      all: ["seller", "products"] as const,
+      list: (params?: SearchParams) =>
+        ["seller", "products", "list", params] as const,
+      detail: (id: string | number) =>
+        ["seller", "products", "detail", String(id)] as const,
+      categories: ["seller", "products", "categories"] as const,
+    },
+    money: {
+      payments: ["seller", "money", "payments"] as const,
+      withdrawals: ["seller", "money", "withdrawals"] as const,
+      commissions: ["seller", "money", "commissions"] as const,
+    },
+    verification: ["seller", "verification"] as const,
+    notifications: ["seller", "notifications"] as const,
+  },
   appVersion: {
     config: ["appVersion", "config"] as const,
   },

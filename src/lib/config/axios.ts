@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError, type AxiosInstance } from "axios";
 import axiosRetry from "axios-retry";
 import { getToken, deleteToken } from "~/lib/secure-storage";
 import { router } from "expo-router";
@@ -11,13 +11,19 @@ import {
 } from "~/lib/debug-store";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const SYSTEM_KEY = process.env.EXPO_PUBLIC_SYSTEM_KEY;
 
 function createAxiosInstance() {
   return axios.create({
     baseURL: BASE_URL,
     timeout: 45000,
     headers: {
-      common: { Accept: "application/json" },
+      common: {
+        Accept: "application/json",
+        // The backend rejects every request without this key (HTTP 200
+        // "Request not found!"), so both instances send it.
+        ...(SYSTEM_KEY ? { "System-Key": SYSTEM_KEY } : {}),
+      },
       post: { "Content-Type": "application/json" },
     },
   });
@@ -25,6 +31,35 @@ function createAxiosInstance() {
 
 export const axiosInstance = createAxiosInstance();
 export const axiosPrivate = createAxiosInstance();
+
+// The Stuqet API reports many business-rule failures as HTTP 200 with
+// `{ result: false, message }` (wrong password, package limit, "not yours"…).
+// Turn those into rejected requests so every caller's onError path runs.
+function rejectWhenResultFalse(instance: AxiosInstance) {
+  instance.interceptors.response.use((response) => {
+    const data = response.data as
+      { result?: boolean; message?: unknown } | undefined;
+    if (data && typeof data === "object" && data.result === false) {
+      const message = Array.isArray(data.message)
+        ? data.message.join(" ")
+        : typeof data.message === "string"
+          ? data.message
+          : "Request failed";
+      response.status = 400;
+      throw new AxiosError(
+        message,
+        AxiosError.ERR_BAD_REQUEST,
+        response.config,
+        response.request,
+        response,
+      );
+    }
+    return response;
+  });
+}
+
+rejectWhenResultFalse(axiosInstance);
+rejectWhenResultFalse(axiosPrivate);
 
 async function logout() {
   await deleteToken();
