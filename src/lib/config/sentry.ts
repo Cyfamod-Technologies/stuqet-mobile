@@ -2,19 +2,31 @@ import * as Sentry from "@sentry/react-native";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-function getAppVariant(): string {
-  const extra =
+function getExtra(): Record<string, unknown> | undefined {
+  return (
     (Constants.expoConfig?.extra as Record<string, unknown> | undefined) ??
     ((
       Constants as unknown as { manifest?: { extra?: Record<string, unknown> } }
-    ).manifest?.extra as Record<string, unknown> | undefined);
-  const variant = extra?.appVariant;
+    ).manifest?.extra as Record<string, unknown> | undefined)
+  );
+}
+
+function getAppVariant(): string {
+  const variant = getExtra()?.appVariant;
   if (typeof variant === "string" && variant.length > 0) return variant;
   return __DEV__ ? "development" : "production";
 }
 
+/** Per-app DSN resolved in `app.config.ts` (the customer and vendor apps are
+ * separate Sentry projects), falling back to the single shared DSN. */
+function getDsn(): string | undefined {
+  const dsn = getExtra()?.sentryDsn;
+  if (typeof dsn === "string" && dsn.length > 0) return dsn;
+  return process.env.EXPO_PUBLIC_SENTRY_DSN;
+}
+
 export function initSentry() {
-  const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+  const dsn = getDsn();
   const variant = getAppVariant();
   const shouldSend = variant === "preview" || variant === "production";
 

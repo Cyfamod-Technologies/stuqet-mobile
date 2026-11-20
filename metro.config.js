@@ -15,4 +15,18 @@ config.resolver = {
   sourceExts: [...resolver.sourceExts, "svg"],
 };
 
-module.exports = withNativeWind(config, { input: "./src/app/global.css" });
+// Which app is being bundled: "customer" | "vendor". Keep the default in sync
+// with app.config.ts.
+const ROUTE = process.env.EXPO_PUBLIC_ROUTE ?? "customer";
+
+// Metro's cache has no built-in notion that ROUTE changes what it should be
+// bundling. Building both apps back to back on the same machine (or runner)
+// would otherwise let the second build reuse the first one's cached bundle and
+// ship the wrong app's screens. cacheVersion is Metro's own mechanism for this:
+// a different value forces a separate cache, so switching route can never
+// silently reuse another route's bundle.
+config.cacheVersion = ROUTE;
+
+module.exports = withNativeWind(config, {
+  input: `./src/routes/${ROUTE}/global.css`,
+});

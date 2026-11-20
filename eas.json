@@ -12,8 +12,18 @@
         "APP_VARIANT": "development"
       }
     },
-    "ios-simulator": {
+    "development-customer": {
       "extends": "development",
+      "channel": "development-customer",
+      "env": { "EXPO_PUBLIC_ROUTE": "customer" }
+    },
+    "development-vendor": {
+      "extends": "development",
+      "channel": "development-vendor",
+      "env": { "EXPO_PUBLIC_ROUTE": "vendor" }
+    },
+    "ios-simulator": {
+      "extends": "development-customer",
       "ios": {
         "simulator": true
       }
@@ -25,12 +35,32 @@
         "APP_VARIANT": "preview"
       }
     },
+    "preview-customer": {
+      "extends": "preview",
+      "channel": "preview-customer",
+      "env": { "EXPO_PUBLIC_ROUTE": "customer" }
+    },
+    "preview-vendor": {
+      "extends": "preview",
+      "channel": "preview-vendor",
+      "env": { "EXPO_PUBLIC_ROUTE": "vendor" }
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production",
       "env": {
         "APP_VARIANT": "production"
       }
+    },
+    "production-customer": {
+      "extends": "production",
+      "channel": "production-customer",
+      "env": { "EXPO_PUBLIC_ROUTE": "customer" }
+    },
+    "production-vendor": {
+      "extends": "production",
+      "channel": "production-vendor",
+      "env": { "EXPO_PUBLIC_ROUTE": "vendor" }
     }
   },
   "submit": {
@@ -38,6 +68,14 @@
       "android": {
         "track": "internal"
       },
+      "ios": {}
+    },
+    "production-customer": {
+      "android": { "track": "internal" },
+      "ios": {}
+    },
+    "production-vendor": {
+      "android": { "track": "internal" },
       "ios": {}
     }
   }
