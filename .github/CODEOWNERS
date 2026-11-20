@@ -1,0 +1,5 @@
+# TODO: replace with the GitHub usernames or teams that own CI and release
+# workflows. Changes under these paths then need their review.
+#
+# .github/workflows/ @owner-one @owner-two
+# .github/CODEOWNERS @owner-one @owner-two

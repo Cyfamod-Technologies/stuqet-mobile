@@ -1,0 +1,520 @@
+name: Dev — Build APKs and Upload to S3
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - ".github/workflows/dev-android-apk-distribution.yml"
+      - "app.config.ts"
+      - "assets/**"
+      - "eas.json"
+      - "package-lock.json"
+      - "package.json"
+      - "scripts/build-android.mjs"
+      - "src/**"
+  workflow_dispatch:
+    inputs:
+      notification_only:
+        description: "Post Discord links for APKs already uploaded to S3, without rebuilding"
+        required: true
+        default: false
+        type: boolean
+      source_sha:
+        description: "Commit SHA whose uploaded APKs should be announced when notification_only is true"
+        required: false
+        type: string
+
+concurrency:
+  group: dev-android-apk-distribution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # This comment used to claim customer and vendor "each get their own
+  # runner" and that this was why a Metro cache leak between them "can't
+  # happen." That was never actually true -- this org has exactly one
+  # self-hosted runner, so both matrix legs always ran sequentially on the
+  # same machine, sharing the same disk and the same Metro cache. Because
+  # metro.config.js never made EXPO_PUBLIC_ROUTE part of Metro's cache key,
+  # this shipped a real production bug: both apps showing customer's screens,
+  # since customer builds first and Metro had no reason to invalidate anything
+  # for the vendor build after it. Fixed at the actual source --
+  # metro.config.js now sets cacheVersion to the route, so a route switch
+  # can never again silently reuse another route's bundle, regardless of
+  # how many runners this ever ends up on.
+  build-and-upload:
+    name: "Build ${{ matrix.route }} APK, upload to S3"
+    # Always our self-hosted runner -- this workflow was the actual source
+    # of the Actions-minutes/storage spike that prompted setting one up (see
+    # the cache/storage fix PR). If both matrix legs land at once, the
+    # second one queues for a few minutes rather than running in parallel --
+    # acceptable at this repo's traffic, and simpler than a dynamic
+    # busy-check + fallback for a single-runner setup where the second job
+    # would have to queue either way.
+    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.notification_only != true }}
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        route: ["customer", "vendor"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate required GitHub secrets
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH: ${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_PROJECT_CUSTOMER: ${{ secrets.SENTRY_PROJECT_CUSTOMER }}
+          SENTRY_PROJECT_VENDOR: ${{ secrets.SENTRY_PROJECT_VENDOR }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_PUBLIC_BASE_URL: ${{ secrets.AWS_S3_PUBLIC_BASE_URL }}
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+        run: |
+          missing=0
+          required_vars=(
+            EXPO_PUBLIC_API_BASE_URL
+            EXPO_PUBLIC_SENTRY_DSN_CUSTOMER
+            EXPO_PUBLIC_SENTRY_DSN_VENDOR
+            EXPO_PUBLIC_ENABLE_THEME_SWITCH
+            SENTRY_AUTH_TOKEN
+            SENTRY_PROJECT_CUSTOMER
+            SENTRY_PROJECT_VENDOR
+            AWS_ACCESS_KEY_ID
+            AWS_SECRET_ACCESS_KEY
+            AWS_REGION
+            AWS_S3_BUCKET
+            AWS_S3_PUBLIC_BASE_URL
+            DISCORD_BUILD_WEBHOOK_URL
+          )
+
+          for name in "${required_vars[@]}"; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          case "$EXPO_PUBLIC_API_BASE_URL" in https://*) ;; *) echo "::error::EXPO_PUBLIC_API_BASE_URL must start with https://"; exit 1 ;; esac
+          case "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_CUSTOMER must start with https://"; exit 1 ;; esac
+          case "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_VENDOR must start with https://"; exit 1 ;; esac
+          case "$AWS_S3_PUBLIC_BASE_URL" in http://*|https://*) ;; *) echo "::error::AWS_S3_PUBLIC_BASE_URL must start with http:// or https://"; exit 1 ;; esac
+          case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
+
+          # A non-empty check cannot tell a mis-pasted JSON credential apart. The
+          # Play publisher service-account key is a JSON blob downloaded from a Google
+          # console; checking its shape costs milliseconds and catches a bad paste
+          # here instead of partway through a long native build. Only pass/fail is
+          # printed; the value is never echoed.
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+      - name: Install Android SDK Platform 36 & Build Tools
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Cache Gradle dependencies
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('app.config.ts', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Create production env file for native builds
+        run: |
+          cat > .env.prod <<'EOF'
+          EXPO_PUBLIC_API_BASE_URL=${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
+          SENTRY_PROJECT_CUSTOMER=${{ secrets.SENTRY_PROJECT_CUSTOMER }}
+          SENTRY_PROJECT_VENDOR=${{ secrets.SENTRY_PROJECT_VENDOR }}
+          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH=${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
+          EOF
+
+      - name: Print runner resources before build
+        id: runner_resources
+        run: |
+          cpu_cores="$(nproc)"
+          memory_total="$(free -h | awk '/^Mem:/ {print $2}')"
+          memory_available="$(free -h | awk '/^Mem:/ {print $7}')"
+          disk_available="$(df -h / | awk 'NR==2 {print $4}')"
+
+          echo "cpu_cores=$cpu_cores" >> "$GITHUB_OUTPUT"
+          echo "memory_total=$memory_total" >> "$GITHUB_OUTPUT"
+          echo "memory_available=$memory_available" >> "$GITHUB_OUTPUT"
+          echo "disk_available=$disk_available" >> "$GITHUB_OUTPUT"
+
+          echo "CPU cores: $cpu_cores"
+          echo
+          echo "CPU details:"
+          lscpu
+          echo
+          echo "Memory:"
+          free -h
+          echo
+          echo "Disk:"
+          df -h
+          echo
+          echo "Top memory processes:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 15
+          echo
+          echo "Top CPU processes:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-%cpu | head -n 15
+
+      - name: Ensure GNU time is available
+        # GitHub-hosted runner images ship /usr/bin/time preinstalled; a bare
+        # Ubuntu base (this self-hosted runner) doesn't -- it's a separate
+        # package, not the bash built-in `time` keyword. Install it only if
+        # it's actually missing, so this stays a no-op on hosted runners too.
+        run: |
+          if [ ! -x /usr/bin/time ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y time
+          fi
+
+      - name: Build ${{ matrix.route }} APK
+        id: build
+        run: |
+          (
+            while true; do
+              echo "::group::${{ matrix.route }} build resource sample $(date -u +%H:%M:%S)"
+              free -h
+              df -h /
+              ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 10
+              echo "::endgroup::"
+              sleep 60
+            done
+          ) &
+          monitor_pid="$!"
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+
+          /usr/bin/time -v -o build-time.txt node scripts/build-android.mjs "${{ matrix.route }}" apk
+
+          kill "$monitor_pid" 2>/dev/null || true
+          trap - EXIT
+
+          cat build-time.txt
+
+          elapsed="$(awk -F': ' '/Elapsed \(wall clock\) time/ {print $2}' build-time.txt)"
+          cpu_percent="$(awk -F': ' '/Percent of CPU this job got/ {print $2}' build-time.txt)"
+          max_rss_kb="$(awk -F': ' '/Maximum resident set size/ {print $2}' build-time.txt)"
+          max_rss_mib="$(awk -v kb="$max_rss_kb" 'BEGIN {printf "%.0fMiB", kb / 1024}')"
+
+          echo "elapsed=${elapsed:-unavailable}" >> "$GITHUB_OUTPUT"
+          echo "cpu_percent=${cpu_percent:-unavailable}" >> "$GITHUB_OUTPUT"
+          echo "max_rss=${max_rss_mib:-unavailable}" >> "$GITHUB_OUTPUT"
+
+      - name: Print runner resources after build
+        if: always()
+        run: |
+          echo "Memory after ${{ matrix.route }} APK:"
+          free -h
+          echo
+          echo "Disk after ${{ matrix.route }} APK:"
+          df -h
+          echo
+          echo "Top memory processes after ${{ matrix.route }} APK:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 15
+          echo
+          echo "Top CPU processes after ${{ matrix.route }} APK:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-%cpu | head -n 15
+
+      - name: Locate APK output
+        id: apk
+        shell: bash
+        run: |
+          apk_path="$(find local-builds/android -type f -name 'stuqet-${{ matrix.route }}-preview-*.apk' | sort | tail -n 1)"
+
+          if [[ -z "$apk_path" ]]; then
+            echo "Could not find the ${{ matrix.route }} APK output."
+            find local-builds/android -type f -name '*.apk' -print
+            exit 1
+          fi
+
+          echo "apk_path=$apk_path" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$(basename "$apk_path")" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify S3 bucket access
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+        run: aws s3api head-bucket --bucket "$AWS_S3_BUCKET"
+
+      - name: Upload APK to S3
+        id: s3
+        shell: bash
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_PREFIX: ${{ secrets.AWS_S3_PREFIX }}
+          AWS_S3_PUBLIC_BASE_URL: ${{ secrets.AWS_S3_PUBLIC_BASE_URL }}
+          S3_PRESIGN_EXPIRES_SECONDS: ${{ secrets.S3_PRESIGN_EXPIRES_SECONDS }}
+          APK_PATH: ${{ steps.apk.outputs.apk_path }}
+          APK_NAME: ${{ steps.apk.outputs.apk_name }}
+        run: |
+          if [[ -z "$AWS_S3_BUCKET" ]]; then
+            echo "AWS_S3_BUCKET secret is required."
+            exit 1
+          fi
+
+          prefix="${AWS_S3_PREFIX:-mobile/dev-builds}"
+          prefix="${prefix%/}"
+          build_path="${prefix}/${GITHUB_SHA}"
+          key="${build_path}/${APK_NAME}"
+
+          aws s3 cp "$APK_PATH" "s3://${AWS_S3_BUCKET}/${key}" \
+            --content-type application/vnd.android.package-archive
+
+          if [[ -n "$AWS_S3_PUBLIC_BASE_URL" ]]; then
+            public_base="${AWS_S3_PUBLIC_BASE_URL%/}"
+            url="${public_base}/${key}"
+          else
+            expires="${S3_PRESIGN_EXPIRES_SECONDS:-604800}"
+            url="$(aws s3 presign "s3://${AWS_S3_BUCKET}/${key}" --expires-in "$expires")"
+          fi
+
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Verify APK download link
+        env:
+          APK_URL: ${{ steps.s3.outputs.url }}
+        run: curl --fail --location --head "$APK_URL"
+
+      # Each matrix leg announces its own result directly -- no relay through a
+      # downloaded artifact or job output to a separate "notify" job. A relay
+      # can fail on a storage-quota hiccup and make a genuinely successful
+      # build (S3 upload verified above) get reported as "failed", or drop one
+      # app's link from a combined message.
+      # Posting from here means there's nothing to relay -- this step has
+      # everything it needs locally. Trade-off: customer and vendor now post as
+      # two separate Discord messages instead of one combined one. Both
+      # carry the same "Build <short sha>" tag so they're still visibly
+      # one build at a glance, without needing a real thread.
+      #
+      # continue-on-error on all three: a Discord webhook hiccup must never
+      # be able to fail this job -- the real build and S3 upload already
+      # succeeded by this point, and this step is announcement only. Found
+      # missing in code review before merge; without it, this would have
+      # reintroduced the exact class of bug this PR exists to remove, just
+      # relocated into this job instead of the old separate "notify" job.
+      #
+      # All three share scripts/notify-dev-apk-discord.py rather than each
+      # embedding its own ~40-line copy of the same request/error-handling
+      # code -- also a code-review finding on the first version of this PR.
+      - name: Notify Discord — success
+        if: success()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: success
+          ROUTE: ${{ matrix.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          SHORT_SHA: ${{ github.sha }}
+          APK_URL: ${{ steps.s3.outputs.url }}
+          ELAPSED: ${{ steps.build.outputs.elapsed }}
+          MAX_RSS: ${{ steps.build.outputs.max_rss }}
+          CPU_CORES: ${{ steps.runner_resources.outputs.cpu_cores }}
+          MEMORY_TOTAL: ${{ steps.runner_resources.outputs.memory_total }}
+          DISK_AVAILABLE: ${{ steps.runner_resources.outputs.disk_available }}
+        run: python3 scripts/notify-dev-apk-discord.py
+
+      - name: Notify Discord — failure
+        if: failure()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: failure
+          ROUTE: ${{ matrix.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          SHORT_SHA: ${{ github.sha }}
+        run: python3 scripts/notify-dev-apk-discord.py
+
+      # A deliberately cancelled leg (e.g. superseded by a newer push) is
+      # not a failure -- treating it as one reads as "something broke" when
+      # nothing did. Same reasoning as release-android.yml's cancelled
+      # branch.
+      - name: Notify Discord — cancelled
+        if: cancelled()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: cancelled
+          ROUTE: ${{ matrix.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          SHORT_SHA: ${{ github.sha }}
+        run: python3 scripts/notify-dev-apk-discord.py
+
+  notify-existing-apks:
+    name: "Notify Discord for existing S3 APKs"
+    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.notification_only == true }}
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Validate notification inputs and secrets
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_PUBLIC_BASE_URL: ${{ secrets.AWS_S3_PUBLIC_BASE_URL }}
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          if [[ -z "$SOURCE_SHA" ]]; then
+            echo "::error::source_sha is required when notification_only is true."
+            exit 1
+          fi
+
+          missing=0
+          for name in AWS_S3_BUCKET AWS_S3_PUBLIC_BASE_URL DISCORD_BUILD_WEBHOOK_URL; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          case "$AWS_S3_PUBLIC_BASE_URL" in http://*|https://*) ;; *) echo "::error::AWS_S3_PUBLIC_BASE_URL must start with http:// or https://"; exit 1 ;; esac
+          case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.2.3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Locate existing APKs in S3
+        id: existing_apks
+        shell: bash
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_PREFIX: ${{ secrets.AWS_S3_PREFIX }}
+          AWS_S3_PUBLIC_BASE_URL: ${{ secrets.AWS_S3_PUBLIC_BASE_URL }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          prefix="${AWS_S3_PREFIX:-mobile/dev-builds}"
+          prefix="${prefix%/}"
+          build_path="${prefix}/${SOURCE_SHA}"
+
+          customer_key="$(aws s3api list-objects-v2 \
+            --bucket "$AWS_S3_BUCKET" \
+            --prefix "$build_path/" \
+            --query "reverse(sort_by(Contents[?contains(Key, 'stuqet-customer-preview-') && ends_with(Key, '.apk')], &LastModified))[0].Key" \
+            --output text)"
+          vendor_key="$(aws s3api list-objects-v2 \
+            --bucket "$AWS_S3_BUCKET" \
+            --prefix "$build_path/" \
+            --query "reverse(sort_by(Contents[?contains(Key, 'stuqet-vendor-preview-') && ends_with(Key, '.apk')], &LastModified))[0].Key" \
+            --output text)"
+
+          if [[ -z "$customer_key" || "$customer_key" == "None" || -z "$vendor_key" || "$vendor_key" == "None" ]]; then
+            echo "::error::Could not find Customer and Vendor APKs under s3://${AWS_S3_BUCKET}/${build_path}/"
+            exit 1
+          fi
+
+          public_base="${AWS_S3_PUBLIC_BASE_URL%/}"
+          customer_url="${public_base}/${customer_key}"
+          vendor_url="${public_base}/${vendor_key}"
+
+          curl --fail --location --head "$customer_url"
+          curl --fail --location --head "$vendor_url"
+
+          echo "customer_url=$customer_url" >> "$GITHUB_OUTPUT"
+          echo "vendor_url=$vendor_url" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Discord build channel
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          CUSTOMER_URL: ${{ steps.existing_apks.outputs.customer_url }}
+          VENDOR_URL: ${{ steps.existing_apks.outputs.vendor_url }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          payload = {
+              "content": (
+                  "🚀 **Latest Android builds are ready**\n"
+                  f"Notification run: {os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}\n\n"
+                  f"**Latest Customer app build:** {os.environ['CUSTOMER_URL']}\n"
+                  f"**Latest Vendor app build:** {os.environ['VENDOR_URL']}"
+              )
+          }
+
+          request = urllib.request.Request(
+              os.environ["DISCORD_BUILD_WEBHOOK_URL"],
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Content-Type": "application/json",
+                  "User-Agent": "Stuqet-Build-Bot/1.0",
+              },
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=20) as response:
+                  if response.status >= 300:
+                      raise SystemExit(f"Discord notification failed with HTTP {response.status}")
+          except urllib.error.HTTPError as error:
+              body = error.read().decode("utf-8", errors="replace")
+              raise SystemExit(f"Discord notification failed with HTTP {error.code}: {body}")
+          PY

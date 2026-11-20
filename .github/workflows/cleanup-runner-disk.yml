@@ -1,0 +1,69 @@
+name: Cleanup — Self-Hosted Runner Disk
+
+# GitHub-hosted runners get a fresh disk every single job -- this one
+# doesn't. Everything this repo's workflows write outside the checked-out
+# workspace (Gradle's dependency cache, npm's cache) persists on the same
+# EC2 box across every job it ever runs, forever, unless something clears
+# it. actions/checkout already git-cleans the workspace itself before each
+# checkout, so build outputs (APKs/AABs under local-builds/) don't
+# accumulate -- this only needs to handle the two caches that live outside
+# the workspace.
+#
+# This is separate from cleanup-actions-caches.yml, which only clears
+# GitHub's own cloud-side Actions cache storage, not this runner's local
+# disk.
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # Daily, 04:00 UTC -- local disk fills faster than
+      # GitHub's cache storage, since every job on this one box adds to it.
+  workflow_dispatch:
+    inputs:
+      max_age_days:
+        description: "Delete cache entries older than this many days"
+        required: true
+        default: "14"
+        type: string
+
+jobs:
+  cleanup:
+    name: Prune stale Gradle/npm caches on the runner
+    # Hardcoded, deliberately NOT ${{ vars.RUNNER_OS || ... }} like every
+    # other workflow here. This job's entire purpose is to clean the disk of
+    # this one persistent machine, so it has to run ON that machine. While it
+    # honoured vars.RUNNER_OS it followed that variable to wherever everything
+    # else runs -- and with RUNNER_OS set to ubuntu-latest it was executing on
+    # a fresh throwaway VM, pruning caches that did not exist there, reporting
+    # success, and never touching the box it exists to maintain.
+    runs-on: stuqet
+
+    steps:
+      - name: Disk usage before cleanup
+        run: df -h /
+
+      - name: Prune stale Gradle module cache
+        env:
+          MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '14' }}
+        run: |
+          gradle_modules="$HOME/.gradle/caches/modules-2"
+          if [ -d "$gradle_modules" ]; then
+            echo "Removing Gradle module cache entries untouched for ${MAX_AGE_DAYS}+ days..."
+            find "$gradle_modules" -mindepth 1 -maxdepth 1 -type d -mtime "+${MAX_AGE_DAYS}" -print -exec rm -rf {} +
+          else
+            echo "No Gradle module cache found at $gradle_modules, skipping."
+          fi
+
+      - name: Prune stale npm cache
+        env:
+          MAX_AGE_DAYS: ${{ github.event.inputs.max_age_days || '14' }}
+        run: |
+          npm_cache="$HOME/.npm/_cacache"
+          if [ -d "$npm_cache" ]; then
+            echo "Removing npm cache entries untouched for ${MAX_AGE_DAYS}+ days..."
+            find "$npm_cache" -mindepth 1 -maxdepth 2 -mtime "+${MAX_AGE_DAYS}" -print -exec rm -rf {} + 2>/dev/null || true
+          else
+            echo "No npm cache found at $npm_cache, skipping."
+          fi
+
+      - name: Disk usage after cleanup
+        run: df -h /
