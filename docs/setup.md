@@ -28,11 +28,15 @@ secrets.
 cp .env.example .env.local
 ```
 
-| Variable                          | Required | Description                                                                                                                              |
-| --------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_API_BASE_URL`        | Yes      | Base URL of your backend API. Used by the Axios clients in `src/lib/config/axios.ts`.                                                    |
-| `EXPO_PUBLIC_SENTRY_DSN`          | No       | Sentry DSN read by `src/lib/config/sentry.ts`. Sentry only initializes for `preview`/`production` builds when set.                       |
-| `EXPO_PUBLIC_ENABLE_THEME_SWITCH` | No       | Shows the light/dark theme switch. Set to `"false"` to hide it and lock the theme (default light). Read in `src/lib/config/features.ts`. |
+| Variable                          | Required | Description                                                                                                                                                                           |
+| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_ROUTE`               | No       | Which app a build targets: `customer` (default) or `vendor`. Picks the route tree, app identity and brand. Set by the `dev:*` scripts and the `*-customer` / `*-vendor` EAS profiles. |
+| `EAS_PROJECT_ID_CUSTOMER`         | No       | EAS project id for the customer app (build-time). Set after running `eas init` for that app.                                                                                          |
+| `EAS_PROJECT_ID_VENDOR`           | No       | EAS project id for the vendor app (build-time).                                                                                                                                       |
+| `EAS_OWNER`                       | No       | Expo account/organization that owns both EAS projects (build-time).                                                                                                                   |
+| `EXPO_PUBLIC_API_BASE_URL`        | Yes      | Base URL of your backend API. Used by the Axios clients in `src/lib/config/axios.ts`.                                                                                                 |
+| `EXPO_PUBLIC_SENTRY_DSN`          | No       | Sentry DSN read by `src/lib/config/sentry.ts`. Sentry only initializes for `preview`/`production` builds when set.                                                                    |
+| `EXPO_PUBLIC_ENABLE_THEME_SWITCH` | No       | Shows the light/dark theme switch. Set to `"false"` to hide it and lock the theme (default light). Read in `src/lib/config/features.ts`.                                              |
 
 > `APP_VARIANT` (separate from the `EXPO_PUBLIC_*` vars) selects the native app
 > identity — bundle id, app name, and URL scheme — in `app.config.ts`. It is set
@@ -43,7 +47,18 @@ cp .env.example .env.local
 
 Search the codebase for `TODO` and set:
 
-- `app.config.ts` — app name, bundle id, scheme, Sentry, EAS project, owner.
+- `app.config.ts` — per-app identity lives in `ROUTE_CONFIG` (name, bundle id,
+  scheme, slug, brand colour). Confirm the bundle ids (`com.stuqet.customer`,
+  `com.stuqet.vendor`) before the first store build; they cannot change after
+  publishing. Also set up Sentry (one project per app) and the store URLs.
+- EAS (optional — only if you build or ship OTA updates through EAS rather than
+  the GitHub workflows) — create **one project per app**: run `eas init` once
+  with `EXPO_PUBLIC_ROUTE=customer` and once with `EXPO_PUBLIC_ROUTE=vendor`,
+  then put the ids in `EAS_PROJECT_ID_CUSTOMER` / `EAS_PROJECT_ID_VENDOR`.
+- Brand artwork — add per-app icons under `assets/brand/customer/` and
+  `assets/brand/vendor/` (see [assets/brand/README.md](../assets/brand/README.md)
+  for the file names). `app.config.ts` uses each file only if it exists, so
+  builds work before the artwork does.
 - `src/components/logo.tsx` — placeholder wordmark/icon.
 - `src/features/auth/api.ts` — auth endpoints.
 - `src/components/force-update-modal.tsx` — store URLs.
@@ -53,7 +68,9 @@ Search the codebase for `TODO` and set:
 | Command                | What it does                                                            |
 | ---------------------- | ----------------------------------------------------------------------- |
 | `npm start`            | Starts the Expo dev server / Metro bundler.                             |
-| `npm run dev`          | Starts Expo with `APP_VARIANT=development` (via `cross-env`).           |
+| `npm run dev`          | Starts Expo with `APP_VARIANT=development` (default app: customer).     |
+| `npm run dev:customer` | Starts the customer + rider app (`EXPO_PUBLIC_ROUTE=customer`).         |
+| `npm run dev:vendor`   | Starts the vendor app (`EXPO_PUBLIC_ROUTE=vendor`).                     |
 | `npm run start:tunnel` | Starts the dev server over an Expo tunnel (use on a different network). |
 | `npm run ios`          | Starts and opens the app in the iOS Simulator.                          |
 | `npm run android`      | Starts and opens the app in the Android emulator.                       |
@@ -69,12 +86,12 @@ project in that client.
 
 ## Quality checks
 
-| Command             | What it does                                     |
-| ------------------- | ------------------------------------------------ |
-| `npm run lint`      | ESLint.                                          |
-| `npm run format`    | Format with Prettier (`format:check` to verify). |
-| `npm run typecheck` | `tsc --noEmit`.                                  |
-| `npm run build`     | Export the JS bundle (`expo export`).            |
+| Command             | What it does                                                                   |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `npm run lint`      | ESLint.                                                                        |
+| `npm run format`    | Format with Prettier (`format:check` to verify).                               |
+| `npm run typecheck` | `tsc --noEmit`.                                                                |
+| `npm run build`     | Export the JS bundle for **both** apps (`build:customer` then `build:vendor`). |
 
 These four run in CI on every PR into `main` (`.github/workflows/ci.yml`).
 
@@ -90,11 +107,26 @@ Build profiles are defined in `eas.json`. The `build:*` scripts wrap `eas build`
 | `npm run build:prod:android` | `production` | Android  |
 | `npm run build:prod:all`     | `production` | all      |
 
+The route-less commands above build the default app (customer). For a specific
+app use the per-app scripts:
+
+| Command                          | Profile               | Platform |
+| -------------------------------- | --------------------- | -------- |
+| `npm run build:android:customer` | `preview-customer`    | Android  |
+| `npm run build:android:vendor`   | `preview-vendor`      | Android  |
+| `npm run build:ios:customer`     | `preview-customer`    | iOS      |
+| `npm run build:ios:vendor`       | `preview-vendor`      | iOS      |
+| `npm run build:prod:customer`    | `production-customer` | all      |
+| `npm run build:prod:vendor`      | `production-vendor`   | all      |
+| `npm run submit:customer`        | `production-customer` | all      |
+| `npm run submit:vendor`          | `production-vendor`   | all      |
+
 To build a development client directly:
 
 ```bash
-eas build --profile development --platform android
-eas build --profile ios-simulator --platform ios
+eas build --profile development-customer --platform android
+eas build --profile development-vendor --platform android
+eas build --profile ios-simulator --platform ios   # customer app
 ```
 
 ## EAS build profiles (`eas.json`)
@@ -102,12 +134,52 @@ eas build --profile ios-simulator --platform ios
 | Profile         | Highlights                                                                |
 | --------------- | ------------------------------------------------------------------------- |
 | `development`   | Dev client, internal distribution, `development` channel.                 |
-| `ios-simulator` | Extends `development` with `ios.simulator: true`.                         |
+| `ios-simulator` | Extends `development-customer` with `ios.simulator: true`.                |
 | `preview`       | Internal distribution, `preview` channel. Used by the preview workflow.   |
 | `production`    | Auto-incrementing, `production` channel. Used by the production workflow. |
+
+Each of `development`, `preview` and `production` also has a `-customer` and a
+`-vendor` variant that extends it, sets `EXPO_PUBLIC_ROUTE`, and uses its own
+channel (for example `preview-vendor` publishes on the `preview-vendor`
+channel), so the two apps never receive each other's OTA updates.
+
+## Local Android builds
+
+APKs and AABs for both apps can be built on your own machine, without EAS — see
+[local-builds.md](./local-builds.md). The scripts are `npm run apk:customer`,
+`apk:vendor`, `apk:all`, `aab:customer`, `aab:vendor` and `aab:all`.
+
+## GitHub Actions secrets and variables
+
+The build, release and distribution workflows (see [dev.md](./dev.md)) read these
+repository **secrets**. The per-app ones exist once for Stuqet Customer and once
+for Stuqet Vendor.
+
+| Secret                                                                                                | Used for                                                                                |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_API_BASE_URL`                                                                            | Production API base URL embedded in the app (must be `https://`).                       |
+| `EXPO_PUBLIC_ENABLE_THEME_SWITCH`                                                                     | Theme switch flag for release builds.                                                   |
+| `EXPO_PUBLIC_SENTRY_DSN_CUSTOMER` / `_VENDOR`                                                         | Per-app Sentry DSN.                                                                     |
+| `SENTRY_AUTH_TOKEN`, `SENTRY_PROJECT_CUSTOMER`, `SENTRY_PROJECT_VENDOR`                               | Source map upload (also needs `SENTRY_ORG`).                                            |
+| `ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER` / `_VENDOR`                                                 | Base64 upload keystore for each app.                                                    |
+| `ANDROID_UPLOAD_STORE_PASSWORD_*`, `ANDROID_UPLOAD_KEY_ALIAS_*`, `ANDROID_UPLOAD_KEY_PASSWORD_*`      | Upload key credentials, per app.                                                        |
+| `PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON`                                                                 | Google Play publisher service-account key (raw JSON).                                   |
+| `DISCORD_BUILD_WEBHOOK_URL`                                                                           | Build and release notifications.                                                        |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_S3_PUBLIC_BASE_URL` | Preview APK distribution (also optional `AWS_S3_PREFIX`, `S3_PRESIGN_EXPIRES_SECONDS`). |
+| `APP_VERSION_PUBLISH_KEY`                                                                             | Optional: publishes the build number to the backend after a release.                    |
+| `GITLEAKS_LICENSE`                                                                                    | Only if the secret-scan action needs a licence for your organisation.                   |
+
+Repository **variables**: `ANDROID_UPLOAD_SHA1_CUSTOMER` and
+`ANDROID_UPLOAD_SHA1_VENDOR` (the upload-key SHA-1 fingerprints),
+`PLAY_STORE_TRACK_CUSTOMER` and `PLAY_STORE_TRACK_VENDOR` (the Play track each
+release publishes to), and optionally `RUNNER_OS` for a self-hosted runner.
+
+Also fill in `.github/CODEOWNERS` and the approver list in
+`handle-release-approval.yml` — the release gate refuses every approval until
+that list is set.
 
 ## Deployment
 
 Branching, preview vs production distribution, and EAS Workflows are documented
-in [dev.md](./dev.md). In short: merging into `main` runs the preview pipeline;
-promoting to `prod` runs the production pipeline.
+in [dev.md](./dev.md). In short: PRs go into `dev`; merging into `main` runs the
+preview pipeline; promoting to `prod` runs the production pipeline.

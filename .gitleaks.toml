@@ -1,0 +1,26 @@
+# Extends gitleaks' own default ruleset (real secret detection stays fully
+# active everywhere) and adds one path-based allowlist: our shadcn/ui-style
+# component library.
+#
+# Why: these files are style-variant objects (class-variance-authority
+# `cva()` calls) mapping a short variant name to a long, space-separated
+# Tailwind class string -- e.g. `auth: "border-zinc-200 bg-white"`. That
+# shape -- a short key, a long string, moderate entropy -- is exactly what
+# generic-api-key looks for, and it's pure presentational code, never
+# secrets. Confirmed false positive, 2026-08-24: three findings in
+# input.tsx/select.tsx, all `variant: "<tailwind classes>"` pairs, real
+# secrets score much higher entropy than these did (~3.5). button.tsx has
+# the same cva() pattern and hasn't tripped yet only because none of its
+# current variant strings happen to match the entropy threshold -- the
+# next one added easily could.
+#
+# Fingerprint-pinning only the 3 that already fired wouldn't have caught
+# that -- allowlisting the whole directory, where secrets structurally
+# don't belong, does.
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''src/components/ui/.*\.tsx$''',
+]

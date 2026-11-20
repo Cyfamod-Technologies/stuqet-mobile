@@ -1,0 +1,498 @@
+name: Release — 3. Publish (internal, called by step 2)
+
+# This workflow has exactly one trigger: workflow_call. That is deliberate
+# and load-bearing, not a style choice -- it means this file can ONLY be
+# started by another workflow explicitly `uses:`-ing it (currently only
+# handle-release-approval.yml, after it has verified a second, named,
+# different person approved the request). There is no workflow_dispatch,
+# no pull_request, no push trigger here. No token, no API call, no human
+# clicking "Run workflow" can reach this file directly -- the GitHub API
+# has no endpoint that starts a workflow_call-only workflow from outside
+# another workflow. If a trigger other than workflow_call is ever added
+# here, the entire two-person approval gate in release-android.yml and
+# handle-release-approval.yml becomes a no-op: there would be a second,
+# direct door straight to these secrets that skips approval entirely,
+# and nothing about that would look broken from the outside. The
+# "workflow trigger guard" step in ci.yml exists specifically to catch
+# that before it merges.
+on:
+  workflow_call:
+    inputs:
+      route:
+        description: "Which app to release: customer or vendor"
+        required: true
+        type: string
+      track:
+        description: "Resolved Google Play track to publish to"
+        required: true
+        type: string
+      requested_by:
+        description: "GitHub login who requested this release (for Discord notification only)"
+        required: true
+        type: string
+      approved_by:
+        description: "GitHub login who approved this release (for Discord notification only)"
+        required: true
+        type: string
+      gate_pr_url:
+        description: "URL of the release-gate PR this publish was approved from"
+        required: true
+        type: string
+
+concurrency:
+  group: publish-android-${{ inputs.route }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: "Publish Android — ${{ inputs.route }}"
+    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      actions: write # needed to delete the AAB artifact once Play publish succeeds
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      # Re-validated here, not just trusted from whenever the release was
+      # requested: the request that got approved may have sat open for
+      # hours or days, and secrets can be rotated, revoked, or expire in
+      # that window. Never assume a check that passed earlier still holds
+      # at the moment secrets are actually about to be used.
+      - name: Validate required release secrets
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH: ${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_PROJECT_CUSTOMER: ${{ secrets.SENTRY_PROJECT_CUSTOMER }}
+          SENTRY_PROJECT_VENDOR: ${{ secrets.SENTRY_PROJECT_VENDOR }}
+          PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          PLAY_STORE_TRACK: ${{ inputs.track }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER }}
+          ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER }}
+          ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER }}
+          ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR }}
+          ANDROID_UPLOAD_STORE_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_VENDOR }}
+          ANDROID_UPLOAD_KEY_ALIAS_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_VENDOR }}
+          ANDROID_UPLOAD_KEY_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_VENDOR }}
+          ANDROID_UPLOAD_SHA1_CUSTOMER: ${{ vars.ANDROID_UPLOAD_SHA1_CUSTOMER }}
+          ANDROID_UPLOAD_SHA1_VENDOR: ${{ vars.ANDROID_UPLOAD_SHA1_VENDOR }}
+          APP_VERSION_PUBLISH_KEY: ${{ secrets.APP_VERSION_PUBLISH_KEY }}
+        run: |
+          missing=0
+          required_vars=(
+            EXPO_PUBLIC_API_BASE_URL
+            EXPO_PUBLIC_SENTRY_DSN_CUSTOMER
+            EXPO_PUBLIC_SENTRY_DSN_VENDOR
+            EXPO_PUBLIC_ENABLE_THEME_SWITCH
+            SENTRY_AUTH_TOKEN
+            SENTRY_PROJECT_CUSTOMER
+            SENTRY_PROJECT_VENDOR
+            PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON
+            DISCORD_BUILD_WEBHOOK_URL
+            PLAY_STORE_TRACK
+          )
+
+          if [[ "${{ inputs.route }}" == "customer" ]]; then
+            required_vars+=(
+              ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER
+              ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER
+              ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER
+              ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER
+              ANDROID_UPLOAD_SHA1_CUSTOMER
+            )
+          else
+            required_vars+=(
+              ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR
+              ANDROID_UPLOAD_STORE_PASSWORD_VENDOR
+              ANDROID_UPLOAD_KEY_ALIAS_VENDOR
+              ANDROID_UPLOAD_KEY_PASSWORD_VENDOR
+              ANDROID_UPLOAD_SHA1_VENDOR
+            )
+          fi
+
+          for name in "${required_vars[@]}"; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            fi
+          done
+
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+          case "$EXPO_PUBLIC_API_BASE_URL" in https://*) ;; *) echo "::error::EXPO_PUBLIC_API_BASE_URL must start with https://"; exit 1 ;; esac
+          case "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_CUSTOMER must start with https://"; exit 1 ;; esac
+          case "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_VENDOR must start with https://"; exit 1 ;; esac
+          case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
+
+          # A non-empty check cannot tell a mis-pasted JSON credential apart. The
+          # Play publisher service-account key is a JSON blob downloaded from a Google
+          # console; checking its shape costs milliseconds and catches a bad paste
+          # here instead of partway through a long native build. Only pass/fail is
+          # printed; the value is never echoed.
+          if ! printf '%s' "$PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON" | jq -e 'type == "object"' >/dev/null 2>&1; then
+            echo "::error::PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON is not valid JSON. Paste the file contents raw -- not quoted, escaped, or base64-encoded."
+            exit 1
+          fi
+          if ! printf '%s' "$PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON" | jq -e '.type == "service_account" and (.client_email | type == "string") and (.private_key | type == "string")' >/dev/null 2>&1; then
+            echo "::error::PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON is not a Google service-account key (expected type=service_account with client_email and private_key)."
+            exit 1
+          fi
+          echo "PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON has the shape of a Google service-account key."
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Verify Android upload key fingerprint — ${{ inputs.route }}
+        env:
+          ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER }}
+          ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER }}
+          ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR }}
+          ANDROID_UPLOAD_STORE_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_VENDOR }}
+          ANDROID_UPLOAD_KEY_ALIAS_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_VENDOR }}
+          ANDROID_UPLOAD_SHA1_CUSTOMER: ${{ vars.ANDROID_UPLOAD_SHA1_CUSTOMER }}
+          ANDROID_UPLOAD_SHA1_VENDOR: ${{ vars.ANDROID_UPLOAD_SHA1_VENDOR }}
+        run: |
+          if [[ "${{ inputs.route }}" == "customer" ]]; then
+            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER"
+            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER"
+            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER"
+            expected_sha1="$ANDROID_UPLOAD_SHA1_CUSTOMER"
+          else
+            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR"
+            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_VENDOR"
+            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_VENDOR"
+            expected_sha1="$ANDROID_UPLOAD_SHA1_VENDOR"
+          fi
+
+          keystore_path="$RUNNER_TEMP/stuqet-${{ inputs.route }}-upload-key-check.jks"
+          printf '%s' "$keystore_base64" | base64 --decode > "$keystore_path"
+
+          keytool_output="$(keytool -list -v \
+            -keystore "$keystore_path" \
+            -storepass "$store_password" \
+            -alias "$key_alias")"
+
+          if ! grep -Fq "SHA1: $expected_sha1" <<< "$keytool_output"; then
+            echo "::error::${{ inputs.route }} upload key SHA1 does not match Play Console/EAS expected SHA1."
+            echo "::error::Expected SHA1: $expected_sha1"
+            echo "$keytool_output" | grep -E "SHA1:|Alias name:"
+            exit 1
+          fi
+
+          echo "${{ inputs.route }} upload key fingerprint matches expected SHA1."
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+      - name: Install Android SDK Platform 36 & Build Tools
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      - name: Cache Gradle dependencies
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('app.config.ts', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Create production env file for native build
+        run: |
+          cat > .env.prod <<'EOF'
+          EXPO_PUBLIC_API_BASE_URL=${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
+          SENTRY_PROJECT_CUSTOMER=${{ secrets.SENTRY_PROJECT_CUSTOMER }}
+          SENTRY_PROJECT_VENDOR=${{ secrets.SENTRY_PROJECT_VENDOR }}
+          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH=${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
+          EOF
+
+      - name: Resolve release track — ${{ inputs.route }}
+        run: echo "TRACK=${{ inputs.track }}" >> "$GITHUB_ENV"
+
+      - name: Get current Play Store version code — ${{ inputs.route }}
+        env:
+          PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+        run: |
+          version_code="$(node scripts/get-play-version-code.mjs com.stuqet.${{ inputs.route }} "$TRACK")"
+          echo "Highest existing Play Console versionCode for com.stuqet.${{ inputs.route }}: $version_code"
+          echo "PLAY_MAX_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+
+      # A GitHub-hosted runner ships with ~65G of the 72G disk already used
+      # by preinstalled toolchains, leaving ~7G. A dev APK fits in that; this
+      # release path does not -- `expo prebuild --clean` regenerates android/,
+      # then Gradle builds an AAB with R8 minification and a JS bundle on top.
+      # The first release build to ever reach this step died here with "No
+      # space left on device" at 3.6G remaining.
+      #
+      # Everything removed below is preinstalled software this build never
+      # touches. Deliberately NOT removed: the Android SDK platforms and
+      # build-tools, cmake, and above all the NDK -- android/app/build.gradle
+      # sets ndkVersion and react-native-reanimated compiles C++ against it,
+      # so deleting the NDK breaks the build in a way that looks unrelated.
+      # Each removal is tolerant: a path missing from a future runner image
+      # must not fail the release.
+      # github-hosted only, and that guard is load-bearing: this deletes
+      # system directories, which is free on a VM that is destroyed at the
+      # end of the job but destructive on the persistent self-hosted box,
+      # where it would permanently remove tooling other repos may rely on.
+      # Same runner.environment guard the cache steps already use.
+      - name: Reclaim runner disk space
+        if: runner.environment == 'github-hosted'
+        run: |
+          echo "Disk before cleanup:"
+          df -h /
+
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc /usr/local/.ghcup || true
+          sudo rm -rf /usr/local/share/powershell || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || true
+          sudo rm -rf /usr/local/share/chromium /opt/hostedtoolcache/chromium || true
+          # Emulator images are the single largest Android component and a
+          # build never boots a device.
+          sudo rm -rf /usr/local/lib/android/sdk/emulator || true
+          sudo rm -rf /usr/local/lib/android/sdk/system-images || true
+
+          echo "Disk after cleanup:"
+          df -h /
+
+      # Fail in seconds with a clear reason rather than ~20 minutes into
+      # Gradle with a confusing bundler error. The threshold is set from the
+      # observed failure: the build consumed everything it had starting from
+      # 6.7G, so it needs meaningfully more than that.
+      - name: Verify enough disk space for the release build
+        run: |
+          available_gb=$(( $(df --output=avail -k / | tail -1 | tr -d ' ') / 1024 / 1024 ))
+          echo "Available disk space: ${available_gb} GiB"
+
+          if (( available_gb < 12 )); then
+            echo "::error::Only ${available_gb} GiB free -- the ${{ inputs.route }} AAB release build needs at least 12 GiB. The disk-reclaim step above did not free enough, which usually means the runner image changed and some paths it removes no longer exist. Check that step's before/after output."
+            exit 1
+          fi
+
+          echo "Sufficient disk space for the ${{ inputs.route }} release build."
+
+      - name: Print runner resources before build — ${{ inputs.route }}
+        id: runner_resources
+        run: |
+          cpu_cores="$(nproc)"
+          memory_total="$(free -h | awk '/^Mem:/ {print $2}')"
+          disk_available="$(df -h / | awk 'NR==2 {print $4}')"
+
+          echo "cpu_cores=$cpu_cores" >> "$GITHUB_OUTPUT"
+          echo "memory_total=$memory_total" >> "$GITHUB_OUTPUT"
+          echo "disk_available=$disk_available" >> "$GITHUB_OUTPUT"
+
+          echo "CPU cores: $cpu_cores"
+          echo
+          echo "CPU details:"
+          lscpu
+          echo
+          echo "Memory:"
+          free -h
+          echo
+          echo "Disk:"
+          df -h
+          echo
+          echo "Top memory processes:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 15
+          echo
+          echo "Top CPU processes:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-%cpu | head -n 15
+
+      - name: Ensure GNU time is available
+        run: |
+          if [ ! -x /usr/bin/time ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y time
+          fi
+
+      - name: Build production AAB — ${{ inputs.route }}
+        id: build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_PROJECT_CUSTOMER: ${{ secrets.SENTRY_PROJECT_CUSTOMER }}
+          SENTRY_PROJECT_VENDOR: ${{ secrets.SENTRY_PROJECT_VENDOR }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER }}
+          ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER }}
+          ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER }}
+          ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR }}
+          ANDROID_UPLOAD_STORE_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_VENDOR }}
+          ANDROID_UPLOAD_KEY_ALIAS_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_VENDOR }}
+          ANDROID_UPLOAD_KEY_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_VENDOR }}
+        run: |
+          if [[ "${{ inputs.route }}" == "customer" ]]; then
+            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER"
+            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER"
+            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER"
+            key_password="$ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER"
+          else
+            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR"
+            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_VENDOR"
+            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_VENDOR"
+            key_password="$ANDROID_UPLOAD_KEY_PASSWORD_VENDOR"
+          fi
+
+          keystore_path="$RUNNER_TEMP/stuqet-${{ inputs.route }}-upload-key.jks"
+          printf '%s' "$keystore_base64" | base64 --decode > "$keystore_path"
+
+          (
+            while true; do
+              echo "::group::${{ inputs.route }} build resource sample $(date -u +%H:%M:%S)"
+              free -h
+              df -h /
+              ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 10
+              echo "::endgroup::"
+              sleep 60
+            done
+          ) &
+          monitor_pid="$!"
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+
+          ANDROID_UPLOAD_KEYSTORE_FILE="$keystore_path" \
+          ANDROID_UPLOAD_STORE_PASSWORD="$store_password" \
+          ANDROID_UPLOAD_KEY_ALIAS="$key_alias" \
+          ANDROID_UPLOAD_KEY_PASSWORD="$key_password" \
+          /usr/bin/time -v -o build-time.txt node scripts/build-android.mjs "${{ inputs.route }}" aab
+
+          kill "$monitor_pid" 2>/dev/null || true
+          trap - EXIT
+
+          cat build-time.txt
+
+          elapsed="$(awk -F': ' '/Elapsed \(wall clock\) time/ {print $2}' build-time.txt)"
+          max_rss_kb="$(awk -F': ' '/Maximum resident set size/ {print $2}' build-time.txt)"
+          max_rss_mib="$(awk -v kb="$max_rss_kb" 'BEGIN {printf "%.0fMiB", kb / 1024}')"
+
+          echo "elapsed=${elapsed:-unavailable}" >> "$GITHUB_OUTPUT"
+          echo "max_rss=${max_rss_mib:-unavailable}" >> "$GITHUB_OUTPUT"
+
+      - name: Print runner resources after build — ${{ inputs.route }}
+        if: always()
+        run: |
+          echo "Memory after ${{ inputs.route }} build:"
+          free -h
+          echo
+          echo "Disk after ${{ inputs.route }} build:"
+          df -h
+          echo
+          echo "Top memory processes after ${{ inputs.route }} build:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-rss | head -n 15
+          echo
+          echo "Top CPU processes after ${{ inputs.route }} build:"
+          ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-%cpu | head -n 15
+
+      - name: Upload AAB artifact to GitHub
+        id: upload_aab
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "stuqet-${{ inputs.route }}-release-aab-${{ github.sha }}"
+          path: local-builds/android/**/*.aab
+          retention-days: 7
+
+      - name: Publish to Google Play Console
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+          packageName: com.stuqet.${{ inputs.route }}
+          releaseFiles: local-builds/android/**/*.aab
+          tracks: ${{ env.TRACK }}
+          status: completed
+          whatsNewDirectory: docs/releases/${{ inputs.route }}/
+
+      - name: Delete AAB artifact after successful publish
+        if: steps.upload_aab.outputs.artifact-id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/${{ steps.upload_aab.outputs.artifact-id }}" || true
+
+      - name: Publish build number to backend — ${{ inputs.route }}
+        env:
+          APP_VERSION_PUBLISH_KEY: ${{ secrets.APP_VERSION_PUBLISH_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          ROUTE: ${{ inputs.route }}
+          VERSION_CODE: ${{ steps.build.outputs.version_code }}
+        run: node scripts/publish-app-version.mjs "$ROUTE" android "$VERSION_CODE"
+
+      - name: Notify Discord — published
+        if: success()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: success
+          IS_PREFLIGHT: "false"
+          ROUTE: ${{ inputs.route }}
+          TRACK: ${{ env.TRACK }}
+          BRANCH_NAME: dev
+          PR_URL: ${{ inputs.gate_pr_url }}
+          SHORT_SHA: ${{ github.sha }}
+          ELAPSED: ${{ steps.build.outputs.elapsed }}
+          MAX_RSS: ${{ steps.build.outputs.max_rss }}
+          CPU_CORES: ${{ steps.runner_resources.outputs.cpu_cores }}
+          MEMORY_TOTAL: ${{ steps.runner_resources.outputs.memory_total }}
+          DISK_AVAILABLE: ${{ steps.runner_resources.outputs.disk_available }}
+        run: python3 scripts/notify-release-discord.py
+
+      - name: Notify Discord — failure
+        if: failure()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: failure
+          IS_PREFLIGHT: "false"
+          ROUTE: ${{ inputs.route }}
+          BRANCH_NAME: dev
+          PR_URL: ${{ inputs.gate_pr_url }}
+          SHORT_SHA: ${{ github.sha }}
+        run: python3 scripts/notify-release-discord.py
+
+      - name: Notify Discord — cancelled
+        if: cancelled()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: cancelled
+          ROUTE: ${{ inputs.route }}
+          BRANCH_NAME: dev
+          PR_URL: ${{ inputs.gate_pr_url }}
+          SHORT_SHA: ${{ github.sha }}
+        run: python3 scripts/notify-release-discord.py

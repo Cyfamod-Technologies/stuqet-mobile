@@ -1,0 +1,86 @@
+name: Security — Secret scan
+
+# Scans every push/PR to dev and main for accidentally committed secrets
+# (API keys, tokens, credentials) using Gitleaks, plus a weekly scheduled
+# sweep so a leak sitting in history doesn't just wait for the next push.
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+    branches:
+      - dev
+      - main
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    # Self-hosted: if the runner is offline/busy this job just sits "Queued"
+    # on the PR with no automatic failure and no notification. This bounds
+    # that wait so a dead runner surfaces as a fast, visible red X instead.
+    # (15 min, not 10 -- gitleaks scans full history, not just the diff.)
+    timeout-minutes: 15
+    # Default GITHUB_TOKEN permissions here don't include pull-requests:read,
+    # which gitleaks-action needs to look up the PR's commit range on
+    # pull_request-triggered runs (GET /pulls/{pr}/commits) -- without this it
+    # 403s. contents:read covers the checkout itself.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          # Gitleaks scans history, not just the working tree — needs full
+          # depth or it can only see the most recent commit.
+          fetch-depth: 0
+
+      # Same root cause as the GNU-time and dev-disk-space fixes elsewhere
+      # in this repo: a self-hosted runner's filesystem isn't wiped between
+      # jobs, unlike GitHub-hosted ones. If a previous run of this action
+      # ever got cancelled or crashed mid-download, it can leave a
+      # half-written /tmp/gitleaks.tmp behind -- the installer refuses to
+      # overwrite an existing file, so every run after that fails the same
+      # way (regardless of push vs PR) until that one file is cleared.
+      # Clear it defensively before the action ever gets a chance to hit it.
+      - name: Clear stale gitleaks temp file, if any
+        run: rm -f /tmp/gitleaks.tmp
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required for org-owned repos (this one is under
+          # Stuqet) — free key from https://gitleaks.io.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          # gitleaks-action assumes the workspace lives under $HOME
+          # (true on GitHub-hosted runners: /home/runner/work/...), then
+          # crashes trying to upload the SARIF report as an artifact when
+          # it doesn't -- our self-hosted runner's workdir is /tmp/runner,
+          # not /home/runner. Known issue on self-hosted runners:
+          # https://github.com/gitleaks/gitleaks-action/issues/125
+          # We don't need the SARIF artifact anyway -- the pass/fail
+          # check result and step logs are what actually gate the PR.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+
+      - name: Notify Discord on failure
+        if: failure()
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DISCORD_BUILD_WEBHOOK_URL" ]; then
+            echo "No DISCORD_BUILD_WEBHOOK_URL set, skipping notification."
+            exit 0
+          fi
+          curl -sf -X POST "$DISCORD_BUILD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"🔴 **Gitleaks failed** on \`${{ github.ref_name }}\` (${{ github.event_name }}) — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>\"}"

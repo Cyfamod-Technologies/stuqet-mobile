@@ -5,16 +5,44 @@ node_modules/
 .expo/
 dist/
 web-build/
+local-builds/
 expo-env.d.ts
 
 # Native builds
 android/
 ios/
 
-# Environment variables
+# Firebase — client-identifying but still kept out of git; supplied locally and
+# via secrets for CI. Wildcarded, not exact filenames, so a renamed copy such as
+# "google-services (customer-app).json" is still ignored.
+google-services*.json
+GoogleService-Info*.plist
+*firebase*adminsdk*.json
+serviceAccountKey*.json
+
+# Environment variables. Both dotted (.env.prod) and undotted (env.prod) forms
+# are covered, since a missing leading dot is an easy typo. The example file
+# stays tracked.
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+env
+env.*
+*.env
+
+# Android/iOS signing material. Never belongs in git regardless of where it's
+# created or what it's named — these are the private keys that sign what ships
+# to users' devices and the Play/App Store.
+*.jks
+*.keystore
+*.p12
+*.p8
+*.pem
+*.key
+*.cer
+*.mobileprovision
 
 # Logs
 *.log
@@ -34,3 +62,7 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+bug-reports/
+
+/scripts/__pycache__

@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { cn } from "~/lib/utils/helpers";
 import { useThemeColors } from "~/lib/colors";
@@ -13,8 +14,14 @@ interface LogoProps {
   textClassName?: string;
 }
 
-// TODO: Replace the placeholder icon + wordmark below with your app's brand.
-const APP_NAME = "App";
+// The wordmark comes from app.config.ts's per-route `name`, so the same
+// component is correct for whichever app (customer or vendor) this build
+// targets. The "(Dev)" / "(Preview)" and "Customer" / "Vendor" suffixes are
+// dropped for display, so both apps show the "Stuqet" wordmark.
+// TODO: Replace the placeholder icon below with the real Stuqet brand mark.
+const APP_NAME = (Constants.expoConfig?.name ?? "Stuqet")
+  .replace(/\s+\((?:Dev|Preview)\)$/u, "")
+  .replace(/\s+(?:Customer|Vendor)$/u, "");
 
 const sizes: Record<LogoSize, { icon: number; text: string }> = {
   xs: { icon: 16, text: "text-base" },

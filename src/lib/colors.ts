@@ -1,5 +1,18 @@
 import { useThemeStore } from "~/lib/stores/theme-store";
 
+// Both apps share one palette; only the brand accent can differ per app. Keep
+// per-app differences here (and in app.config.ts's `extra.brand`) so the rest of
+// the theme, the UI kit and the hooks stay shared.
+const BRAND_COLORS = {
+  customer: { primary: "#EB6C1A", primaryForeground: "#FFFFFF" },
+  vendor: { primary: "#EB6C1A", primaryForeground: "#FFFFFF" },
+} as const;
+
+const brandColors =
+  BRAND_COLORS[
+    process.env.EXPO_PUBLIC_ROUTE === "vendor" ? "vendor" : "customer"
+  ];
+
 // Dark mode palette — matches the web's .dark CSS vars (oklch → hex)
 export const darkColors = {
   background: "#0B0F14",
@@ -9,8 +22,8 @@ export const darkColors = {
   "card-foreground": "#F8FAFC",
   popover: "#1E293B",
   "popover-foreground": "#F8FAFC",
-  primary: "#6ECAFF",
-  "primary-foreground": "#0F172A",
+  primary: brandColors.primary,
+  "primary-foreground": brandColors.primaryForeground,
   secondary: "#334155",
   "secondary-foreground": "#F8FAFC",
   muted: "#1E293B",
@@ -21,7 +34,7 @@ export const darkColors = {
   "destructive-foreground": "#F8FAFC",
   border: "#1E293B",
   input: "#0B0F1480",
-  ring: "#60A5FA",
+  ring: brandColors.primary,
   success: "#22C55E",
   warning: "#F59E0B",
 } as const;
@@ -37,8 +50,8 @@ export const lightColors = {
   "card-foreground": "#334155",
   popover: "#FFFFFF",
   "popover-foreground": "#334155",
-  primary: "#2F7DC4",
-  "primary-foreground": "#F8FAFC",
+  primary: brandColors.primary,
+  "primary-foreground": brandColors.primaryForeground,
   secondary: "#EEF2F7",
   "secondary-foreground": "#334155",
   muted: "#EEF2F7",
@@ -49,7 +62,7 @@ export const lightColors = {
   "destructive-foreground": "#FFFFFF",
   border: "#CBD5E1",
   input: "#CBD5E1",
-  ring: "#2F7DC4",
+  ring: brandColors.primary,
   success: "#16A34A",
   warning: "#D97706",
 } as const;
