@@ -1,8 +1,8 @@
 # Architecture
 
-Stuqet is an Expo React Native codebase (Expo SDK 54, Expo Router 6, React 19,
-React Native 0.81) written in TypeScript. The new architecture is enabled
-(`newArchEnabled: true`) and the React Compiler experiment is on. UI is styled
+Stuqet is an Expo React Native codebase (Expo SDK 58, Expo Router 58, React 19,
+React Native 0.88) written in TypeScript. The New Architecture is always on
+(it cannot be disabled since SDK 55) and the React Compiler experiment is on. UI is styled
 with NativeWind (Tailwind for React Native), server state is handled with
 TanStack Query, HTTP with Axios, light client state with Zustand, and forms with
 React Hook Form + Zod. Crash/perf reporting uses Sentry and over-the-air updates
@@ -10,7 +10,7 @@ use Expo Updates.
 
 ## Routing
 
-Routing is file-based via **Expo Router 6** (`main: "expo-router/entry"`).
+Routing is file-based via **Expo Router 58** (`main: "expo-router/entry"`).
 Typed routes are enabled (`experiments.typedRoutes`).
 
 ### Two apps, one codebase

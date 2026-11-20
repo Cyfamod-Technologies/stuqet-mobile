@@ -7,7 +7,7 @@ has its own route tree under `src/routes/`. The scaffolding includes an
 authentication flow, tab navigation, a themed UI kit, networking, and production
 update handling.
 
-Built with **Expo SDK 54 · Expo Router 6 · React Native · NativeWind · TanStack
+Built with **Expo SDK 58 · Expo Router 58 · React Native · NativeWind · TanStack
 Query · Axios · Zustand · EAS · Sentry**.
 
 ## What's included

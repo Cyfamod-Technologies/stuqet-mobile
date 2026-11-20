@@ -6,7 +6,7 @@ form that's quick to act on.
 
 ## What this is
 
-The Stuqet mobile apps: **Expo SDK 54 · Expo Router 6 · React 19 · NativeWind ·
+The Stuqet mobile apps: **Expo SDK 58 · Expo Router 58 · React 19 · NativeWind ·
 TanStack Query · Axios · Zustand · React Hook Form + Zod · Sentry · EAS**. It
 ships auth, a tab shell, a themed UI kit, networking, and OTA/force update
 handling.

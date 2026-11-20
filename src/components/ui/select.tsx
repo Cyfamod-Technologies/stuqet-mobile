@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { useRef, useState } from "react";
+import { useRef, useState, type ComponentRef } from "react";
 import {
   View,
   Text,
@@ -94,7 +94,7 @@ export function Select({
   const [layout, setLayout] = useState<
     (LayoutRectangle & { pageY: number; pageX: number }) | null
   >(null);
-  const triggerRef = useRef<View>(null);
+  const triggerRef = useRef<ComponentRef<typeof View>>(null);
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
 
   const selected = options.find((o) => o.value === value);

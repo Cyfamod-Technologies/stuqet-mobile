@@ -167,7 +167,7 @@ for Stuqet Vendor.
 | `DISCORD_BUILD_WEBHOOK_URL`                                                                           | Build and release notifications.                                                        |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_S3_PUBLIC_BASE_URL` | Preview APK distribution (also optional `AWS_S3_PREFIX`, `S3_PRESIGN_EXPIRES_SECONDS`). |
 | `APP_VERSION_PUBLISH_KEY`                                                                             | Optional: publishes the build number to the backend after a release.                    |
-| `GITLEAKS_LICENSE`                                                                                    | Only if the secret-scan action needs a licence for your organisation.                   |
+| `GITLEAKS_LICENSE`                                                                                    | Required for this organization-owned repository's Gitleaks Action. Get the key from [gitleaks.io](https://gitleaks.io), then add it under **Settings → Secrets and variables → Actions**. `.github/workflows/security.yml` passes it to the action. |
 
 Repository **variables**: `ANDROID_UPLOAD_SHA1_CUSTOMER` and
 `ANDROID_UPLOAD_SHA1_VENDOR` (the upload-key SHA-1 fingerprints),

@@ -4,6 +4,7 @@ import { useThemeStore } from "~/lib/stores/theme-store";
 import { darkColors, lightColors } from "~/lib/colors";
 
 type IoniconName = React.ComponentProps<typeof Ionicons>["name"];
+type IoniconColor = React.ComponentProps<typeof Ionicons>["color"];
 
 interface TabConfig {
   name: string;
@@ -59,7 +60,7 @@ export default function TabLayout() {
               <Ionicons
                 name={focused ? iconFocused : icon}
                 size={size ?? 22}
-                color={color}
+                color={color as IoniconColor}
               />
             ),
           }}

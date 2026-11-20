@@ -199,7 +199,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     version: APP_VERSION,
     orientation: "portrait",
     userInterfaceStyle: "light",
-    newArchEnabled: true,
     scheme: getAppScheme(),
     ...(APP_ICON ? { icon: APP_ICON } : {}),
     ios: {
@@ -231,14 +230,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
         "expo-build-properties",
         {
           ios: {
-            deploymentTarget: "16.0",
-            newArchEnabled: true,
+            deploymentTarget: "16.4",
           },
           android: {
             minSdkVersion: 24,
             compileSdkVersion: 36,
             targetSdkVersion: 36,
-            newArchEnabled: true,
             // Off by default in the Expo/RN template — R8 shrinks + obfuscates
             // the unshrunk dex, resource shrinking drops unused Android
             // resources. Requires a real release build to confirm nothing

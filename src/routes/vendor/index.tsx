@@ -11,13 +11,11 @@ import Animated, {
 import { Logo } from "~/components/logo";
 import { Button } from "~/components/ui/button";
 import { hasToken } from "~/lib/secure-storage";
-import { darkColors, lightColors } from "~/lib/colors";
 import { useThemeStore } from "~/lib/stores/theme-store";
 
 export default function SplashIndex() {
   const { theme } = useThemeStore();
   const isDark = theme === "dark";
-  const palette = isDark ? darkColors : lightColors;
 
   const contentOpacity = useSharedValue(0);
   const contentTranslateY = useSharedValue(16);
@@ -50,10 +48,7 @@ export default function SplashIndex() {
 
   return (
     <View className="flex-1 items-center justify-center bg-background px-6">
-      <StatusBar
-        barStyle={isDark ? "light-content" : "dark-content"}
-        backgroundColor={palette.background}
-      />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       <Logo size="xl" />
 
