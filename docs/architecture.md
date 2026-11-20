@@ -1,6 +1,6 @@
 # Architecture
 
-This template is an Expo React Native app (Expo SDK 54, Expo Router 6, React 19,
+Stuqet is an Expo React Native codebase (Expo SDK 54, Expo Router 6, React 19,
 React Native 0.81) written in TypeScript. The new architecture is enabled
 (`newArchEnabled: true`) and the React Compiler experiment is on. UI is styled
 with NativeWind (Tailwind for React Native), server state is handled with
@@ -11,22 +11,44 @@ use Expo Updates.
 ## Routing
 
 Routing is file-based via **Expo Router 6** (`main: "expo-router/entry"`).
-Screens live under `src/app`, and typed routes are enabled
-(`experiments.typedRoutes`).
+Typed routes are enabled (`experiments.typedRoutes`).
 
-- `src/app/index.tsx` — splash/landing screen; redirects to `(tabs)` when a
-  token is present, otherwise shows a "Get started" CTA into `(auth)/login`.
-- `src/app/(auth)/` — unauthenticated screens: `login`, `forgot-password`,
+### Two apps, one codebase
+
+One project builds 2 apps: **customer** (customers and riders) and **vendor**.
+Each has its own self-contained route tree — `src/routes/customer` and
+`src/routes/vendor` — while components, hooks, features, `lib`, providers, theme
+and styles are shared by both.
+
+`EXPO_PUBLIC_ROUTE` (`customer` | `vendor`, default `customer`) chooses which app
+a build targets:
+
+- `app.config.ts` sets `extra.router.root` to `./src/routes/<route>`, which Expo
+  Router uses as its routes directory, and derives the app name, bundle id,
+  scheme, slug and brand for that route.
+- `metro.config.js` points NativeWind's CSS entry at
+  `./src/routes/<route>/global.css` and sets `cacheVersion` to the route so
+  Metro never reuses another app's cached bundle.
+- `eas.json` has a `<profile>-customer` and `<profile>-vendor` variant of each
+  build profile that set the env var for you.
+- Shared code that must differ per app reads `isCustomerApp` / `isVendorApp`
+  (`src/lib/config/features.ts`) or the per-route brand in `src/lib/colors.ts`.
+
+Each route tree has the same shape:
+
+- `index.tsx` — splash/landing screen; redirects to `(tabs)` when a token is
+  present, otherwise shows a "Get started" CTA into `(auth)/login`.
+- `(auth)/` — unauthenticated screens: `login`, `forgot-password`,
   `reset-password`, with their own `_layout.tsx`.
-- `src/app/(tabs)/` — authenticated tab navigator (`_layout.tsx`) with two tabs:
+- `(tabs)/` — authenticated tab navigator (`_layout.tsx`) with two tabs:
   - `index` — Home
   - `more/` — nested stack: `index`, `settings`
 
-Add your own tabs and nested stacks here as the app grows.
+Add each app's own tabs and nested stacks to its route tree as it grows.
 
-## Root layout (`src/app/_layout.tsx`)
+## Root layout (`src/routes/<route>/_layout.tsx`)
 
-The root layout is the app's composition root. It:
+Each app's root layout is its composition root. It:
 
 - Imports the global NativeWind stylesheet (`./global.css`).
 - Initializes Sentry (`initSentry()`) at module load.

@@ -19,8 +19,11 @@ by Prettier and ESLint (see [setup.md](./setup.md)).
 
 ## Project organization
 
-- **Keep route screens in `src/app`.** Files there define the Expo Router
-  navigation tree; keep them focused on screen composition and wiring.
+- **Keep route screens in `src/routes/<route>`** (`customer` or `vendor`). Files
+  there define that app's Expo Router navigation tree; keep them focused on
+  screen composition and wiring. Everything else in `src/` is shared by both
+  apps, so prefer shared components, hooks and features over copying code into
+  a route tree.
 - **Group domain logic in `src/features/<domain>`**, split by responsibility:
   - `api.ts` — service calls
   - `hooks.ts` — TanStack Query hooks

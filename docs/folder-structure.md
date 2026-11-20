@@ -4,19 +4,26 @@ This document describes the repository layout and the responsibility of each
 important directory. The path alias `~/*` maps to `src/*`.
 
 ```
-react-native-template/
+stuqet/
 ├── .eas/
 │   └── workflows/              # EAS Workflows (preview + production pipelines)
 ├── .github/
 │   └── workflows/              # GitHub Actions CI (lint, format, typecheck, build)
+├── assets/
+│   ├── brand/                  # Per-app artwork: customer/ and vendor/ (optional)
+│   └── store/                  # Store listing graphics: customer/ and vendor/
 ├── docs/                       # Developer documentation (this folder)
+│   └── releases/               # Release records: customer/ and vendor/ + template
+├── scripts/                    # Local Android build runner, Play/backend release scripts
 ├── src/
-│   ├── app/                    # Expo Router file-based routes
-│   │   ├── _layout.tsx         # Root layout (fonts, providers, theme, global UI)
-│   │   ├── global.css          # NativeWind global stylesheet entry
-│   │   ├── index.tsx           # Splash/landing screen
-│   │   ├── (auth)/             # Unauthenticated screens (login, forgot/reset)
-│   │   └── (tabs)/             # Authenticated tab navigation + nested stacks
+│   ├── routes/
+│   │   ├── customer/           # Expo Router routes for the customer + rider app
+│   │   └── vendor/             # Routes for the vendor app
+│   │       ├── _layout.tsx     # Root layout (fonts, providers, theme, global UI)
+│   │       ├── global.css      # NativeWind global stylesheet entry
+│   │       ├── index.tsx       # Splash/landing screen
+│   │       ├── (auth)/         # Unauthenticated screens (login, forgot/reset)
+│   │       └── (tabs)/         # Authenticated tab navigation + nested stacks
 │   ├── components/             # Shared app components
 │   │   ├── forms/              # Form field components (form-field, date-time-field)
 │   │   ├── ui/                 # Reusable UI primitives
@@ -51,16 +58,34 @@ push to `prod`). See [dev.md](./dev.md).
 GitHub Actions `ci.yml` runs on PRs into `main`: install, format check, lint,
 type-check, and build (`expo export`).
 
-## `src/app`
+## `src/routes/customer` and `src/routes/vendor`
 
-Expo Router routes. Folder and file names define the navigation tree;
-`_layout.tsx` files define nested navigators/stacks. `global.css` is the
-NativeWind stylesheet entry (referenced by `metro.config.js`).
+One Expo project serves 2 apps — customer (customers and riders) and vendor —
+that share every component, hook, feature, and lib in `src/`. Each folder is a
+self-contained Expo Router root (its own `_layout.tsx`, `index.tsx`,
+`global.css`, `(auth)`/`(tabs)` route groups), structured identically to what a
+single-app `src/app` would look like. Folder and file names define the
+navigation tree; `_layout.tsx` files define nested navigators/stacks.
+
+Which one is active is controlled by the `EXPO_PUBLIC_ROUTE` env var
+(`customer` | `vendor`), read by `app.config.ts` and `metro.config.js`.
+`app.config.ts` sets `extra.router.root` to `./src/routes/<route>`, which Expo
+Router uses as its routes directory, and derives the app name/bundle id/scheme
+for that route. `metro.config.js` points NativeWind's CSS entry at
+`./src/routes/<route>/global.css`. See [setup.md](./setup.md) for the exact
+commands.
 
 - **`(auth)`** — route group for unauthenticated screens (login, forgot/reset
   password) with its own `_layout.tsx`.
 - **`(tabs)`** — route group for the authenticated experience: the tab navigator
   plus the `more` nested stack.
+
+Riders use the customer app: they are an authenticated mode within it, separated
+by role-based authentication, permissions, and screens where needed — not a
+third build target.
+
+When a screen applies to both apps, build it from shared components and features
+rather than copying logic between the two route trees.
 
 ## `src/components`
 

@@ -1,8 +1,11 @@
-# React Native Template
+# Stuqet
 
-An opinionated Expo React Native starter template. It ships the scaffolding an
-app needs on day one — authentication flow, tab navigation, a themed UI kit,
-networking, and production update handling — with zero domain code.
+The Stuqet mobile apps, built from one Expo React Native codebase. Two apps ship
+from a single `src/` — **customer** (customers and riders) and **vendor** (shop
+owners) — sharing the same components, hooks, theme, styles, and lib. Each app
+has its own route tree under `src/routes/`. The scaffolding includes an
+authentication flow, tab navigation, a themed UI kit, networking, and production
+update handling.
 
 Built with **Expo SDK 54 · Expo Router 6 · React Native · NativeWind · TanStack
 Query · Axios · Zustand · EAS · Sentry**.
@@ -31,22 +34,29 @@ Query · Axios · Zustand · EAS · Sentry**.
 ```bash
 npm install
 cp .env.example .env.local   # then fill in EXPO_PUBLIC_API_BASE_URL
-npm run dev
+npm run dev:customer   # the customer + rider app
+npm run dev:vendor     # the vendor app
 ```
 
-Day-to-day development runs on the **EAS development client**, not Expo Go
-(the template uses native modules like `expo-secure-store` and `expo-updates`).
+Which app runs is set by `EXPO_PUBLIC_ROUTE` (`customer` | `vendor`); the two
+scripts above set it for you. `npm run build` exports both apps.
 
-Next: rename the app and wire up your backend (`app.config.ts`,
-`src/features/auth/api.ts`, `src/components/logo.tsx`, store URLs) — the full
-checklist, env vars, and npm scripts are in
+Day-to-day development runs on the **EAS development client**, not Expo Go
+(the apps use native modules like `expo-secure-store` and `expo-updates`).
+
+Next: wire up your backend and EAS projects (`src/features/auth/api.ts`,
+`src/components/logo.tsx`, one EAS project per app) — the full checklist, env
+vars, and npm scripts are in
 [docs/setup.md](docs/setup.md#first-time-customization).
 
 ## Project structure
 
 ```
 src/
-  app/            Expo Router routes ((auth), (tabs), _layout, index)
+  routes/
+    customer/     Expo Router routes for the customer + rider app
+    vendor/       Expo Router routes for the vendor app
+                  (each has (auth), (tabs), _layout, index, global.css)
   components/     UI kit (ui/), forms, and shared components
   features/       Feature modules (api / hooks / types / schemas)
   hooks/          Shared hooks (auth store)
@@ -64,6 +74,8 @@ Full docs live in [`docs/`](docs/):
 - [Folder Structure](docs/folder-structure.md) — where everything lives
 - [Code Style](docs/code-style.md) — conventions
 - [Optimistic Updates](docs/optimistic-updates.md) — TanStack mutation pattern
-- [Dev → Deployment](docs/dev.md) — branch model and EAS workflows
+- [Dev → Deployment](docs/dev.md) — branch model, GitHub Actions and EAS workflows
+- [Local Builds](docs/local-builds.md) — local Android APK/AAB builds and versioning
+- [Release records](docs/releases/RELEASE_TEMPLATE.md) — release record format and rules
 
 Contributing with an AI agent? See [AGENTS.md](AGENTS.md) / [CLAUDE.md](CLAUDE.md).
