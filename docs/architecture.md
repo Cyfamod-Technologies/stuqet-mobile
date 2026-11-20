@@ -16,6 +16,8 @@ Typed routes are enabled (`experiments.typedRoutes`).
 ### Two apps, one codebase
 
 One project builds 2 apps: **customer** (customers and riders) and **vendor**.
+The customer app sells **food only**; product e-commerce is the website
+(see the stuqet-docs `platform-scope.md`).
 Each has its own self-contained route tree — `src/routes/customer` and
 `src/routes/vendor` — while components, hooks, features, `lib`, providers, theme
 and styles are shared by both.
@@ -52,7 +54,7 @@ Each app's root layout is its composition root. It:
 
 - Imports the global NativeWind stylesheet (`./global.css`).
 - Initializes Sentry (`initSentry()`) at module load.
-- Calls `SplashScreen.preventAutoHideAsync()` and loads the **DM Sans** fonts
+- Calls `SplashScreen.preventAutoHideAsync()` and loads the **Urbanist** fonts
   via `useFonts`; once fonts are ready (or error), it hides the splash screen.
 - Wraps the tree in `SafeAreaProvider`, then `GestureHandlerRootView`, then
   `TanstackQueryProvider`.
@@ -129,6 +131,8 @@ NativeWind CSS variables:
   `card`, …) to the corresponding `var(--…)` CSS variables.
 - `src/lib/stores/theme-store.ts` — Zustand store that persists the chosen theme
   to AsyncStorage (`app_theme`), updates `Appearance`, and exposes `hydrate()`.
+
+The visual language (typography, tokens, components) is documented in [DESIGN.md](./DESIGN.md).
 
 Prefer NativeWind class names for styling; use `useThemeColors()` only when a
 component needs a runtime color value (e.g. an icon `color` prop).

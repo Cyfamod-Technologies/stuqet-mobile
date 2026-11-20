@@ -12,6 +12,8 @@ ships auth, a tab shell, a themed UI kit, networking, and OTA/force update
 handling.
 
 One project ships **2 apps — customer and vendor** — from a single `src/`.
+The **customer app is for food only**; the product (non-food) e-commerce
+storefront is the **website**, not a mobile app.
 `src/routes/customer` and `src/routes/vendor` each hold a full Expo Router route
 tree for that audience; everything else in `src/` (components, features, hooks,
 lib, providers, types) is shared by both. Which one builds/runs is controlled by
@@ -121,6 +123,7 @@ follow it; the rules that matter most:
 ## More detail
 
 - [docs/architecture.md](docs/architecture.md) — routing, data flow, theming, services
+- [docs/DESIGN.md](docs/DESIGN.md) — design system: typography, colour tokens, UI kit
 - [docs/code-style.md](docs/code-style.md) — conventions
 - [docs/folder-structure.md](docs/folder-structure.md) — where everything lives
 - [docs/setup.md](docs/setup.md) — env vars, scripts, EAS, CI secrets

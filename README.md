@@ -18,7 +18,8 @@ Query · Axios · Zustand · EAS · Sentry**.
 - **App shell** — animated splash/redirect, an authenticated bottom-tab layout
   (Home + More), and a settings screen with a theme toggle and sign-out.
 - **UI kit** — Button, Card, Input, Badge, Avatar, Accordion, Checkbox, Select,
-  SegmentedControl, Skeleton, plus a date-time form field.
+  SegmentedControl, Skeleton, Text, OtpInput, SocialButton, Notice and more
+  (see [docs/DESIGN.md](docs/DESIGN.md)), plus a date-time form field.
 - **Theming** — light/dark palettes exposed as CSS variables to NativeWind and
   persisted with Zustand + AsyncStorage.
 - **Networking** — Axios instances (public + authenticated) with retry, token
@@ -70,6 +71,7 @@ src/
 Full docs live in [`docs/`](docs/):
 
 - [Setup & Local Development](docs/setup.md) — env vars, scripts, EAS builds/profiles (the canonical setup reference)
+- [Design System](docs/DESIGN.md) — Urbanist type, colour tokens, UI kit
 - [Architecture](docs/architecture.md) — routing, data flow, theming, services
 - [Folder Structure](docs/folder-structure.md) — where everything lives
 - [Code Style](docs/code-style.md) — conventions
