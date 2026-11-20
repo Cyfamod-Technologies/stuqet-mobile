@@ -1,18 +1,26 @@
 import { axiosInstance, axiosPrivate } from "~/lib/config/axios";
-import type { Token, LoginDTO, User } from "./types";
+import { isVendorApp } from "~/lib/config/features";
+import type { Token, LoginDTO, LoginResponse, User } from "./types";
 
 // TODO: Align these endpoints with your backend's auth API.
 const AuthService = {
+  // POST /auth/login — `user_type` picks which account table is searched
+  // (sellers for the vendor app, customers for the customer app).
   login: async (data: LoginDTO): Promise<Token> => {
-    const { data: response } = await axiosInstance.post<{ data: Token }>(
-      "/auth/signin",
-      data,
+    const { data: response } = await axiosInstance.post<LoginResponse>(
+      "/auth/login",
+      {
+        login_by: "email",
+        email: data.email,
+        password: data.password,
+        user_type: isVendorApp ? "seller" : "customer",
+      },
     );
-    return response.data;
+    return { access: response.access_token };
   },
 
-  logout: async (data: { token: string }): Promise<void> => {
-    await axiosPrivate.post("/auth/logout", data);
+  logout: async (_data: { token: string }): Promise<void> => {
+    await axiosPrivate.get("/auth/logout");
   },
 
   forgotPassword: async (data: { email: string }) => {

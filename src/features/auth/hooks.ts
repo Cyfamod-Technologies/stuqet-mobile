@@ -76,11 +76,14 @@ export function useLogout() {
 export function useForgotPassword() {
   return useMutation({
     mutationFn: AuthService.forgotPassword,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       notifySuccess({
         message: "Password reset email sent. Please check your inbox.",
       });
-      router.push("/(auth)/reset-password");
+      router.push({
+        pathname: "/(auth)/reset-password",
+        params: { email: variables.email },
+      });
     },
     onError: (error) => {
       handleApiError(error, {
@@ -97,10 +100,7 @@ export function useResetPassword() {
   return useMutation({
     mutationFn: AuthService.resetPassword,
     onSuccess: () => {
-      notifySuccess({
-        message: "Password reset successfully! Please sign in.",
-      });
-      router.replace("/(auth)/login");
+      router.replace("/(auth)/reset-success");
     },
     onError: (error) => {
       handleApiError(error, {
