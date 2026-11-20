@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { cn } from "~/lib/utils/helpers";
-import { colors } from "~/lib/colors";
+import { useThemeColors } from "~/lib/colors";
 
 export interface SelectOption {
   label: string;
@@ -19,12 +19,12 @@ export interface SelectOption {
 }
 
 const selectTriggerVariants = cva(
-  "flex-row items-center justify-between rounded-3xl border px-5 py-3",
+  "flex-row items-center justify-between min-h-field rounded-field border px-4 py-3",
   {
     variants: {
       variant: {
-        default: "border-border bg-card",
-        auth: "border-zinc-200 bg-white",
+        default: "border-border bg-field",
+        auth: "border-border bg-field",
       },
     },
     defaultVariants: {
@@ -33,11 +33,11 @@ const selectTriggerVariants = cva(
   },
 );
 
-const selectValueTextVariants = cva("flex-1 text-sm", {
+const selectValueTextVariants = cva("flex-1 font-sans-medium text-base", {
   variants: {
     variant: {
       default: "",
-      auth: "text-zinc-900",
+      auth: "text-foreground",
     },
     tone: {
       selected: "",
@@ -50,11 +50,11 @@ const selectValueTextVariants = cva("flex-1 text-sm", {
   },
 });
 
-const selectDropdownVariants = cva("overflow-hidden rounded-3xl border", {
+const selectDropdownVariants = cva("overflow-hidden rounded-field border", {
   variants: {
     variant: {
-      default: "border-border bg-background",
-      auth: "border-zinc-200 bg-white",
+      default: "border-border bg-card",
+      auth: "border-border bg-card",
     },
   },
   defaultVariants: {
@@ -90,6 +90,7 @@ export function Select({
   disabled,
   className,
 }: SelectProps) {
+  const colors = useThemeColors();
   const [open, setOpen] = useState(false);
   const [layout, setLayout] = useState<
     (LayoutRectangle & { pageY: number; pageX: number }) | null
@@ -131,7 +132,9 @@ export function Select({
     <>
       <View className={cn("gap-1.5", className)}>
         {label && (
-          <Text className="text-sm font-medium text-foreground">{label}</Text>
+          <Text className="font-sans-semibold text-sm text-foreground">
+            {label}
+          </Text>
         )}
         <View ref={triggerRef} collapsable={false}>
           <Pressable
@@ -150,7 +153,7 @@ export function Select({
                   tone: selected ? "selected" : "placeholder",
                 }),
                 selected &&
-                  (variant === "auth" ? "text-zinc-900" : "text-foreground"),
+                  (variant === "auth" ? "text-foreground" : "text-foreground"),
               )}
             >
               {selected?.label ?? placeholder}
@@ -162,7 +165,11 @@ export function Select({
             />
           </Pressable>
         </View>
-        {error && <Text className="text-xs text-destructive">{error}</Text>}
+        {error && (
+          <Text className="font-sans-medium text-xs text-destructive-text">
+            {error}
+          </Text>
+        )}
       </View>
 
       <Modal
@@ -207,9 +214,9 @@ export function Select({
                   >
                     <Text
                       className={cn(
-                        "flex-1 text-sm",
+                        "flex-1 font-sans-medium text-base",
                         isSelected
-                          ? "font-semibold text-primary"
+                          ? "font-sans-bold text-brand-text"
                           : "text-foreground",
                       )}
                       numberOfLines={1}

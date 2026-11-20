@@ -52,7 +52,7 @@ export function Logo({
       {!isIconOnly && (
         <Text
           className={cn(
-            "font-bold text-black dark:text-white",
+            "font-sans-extrabold text-foreground",
             textSize,
             textClassName,
           )}

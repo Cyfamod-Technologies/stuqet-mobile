@@ -23,7 +23,7 @@ export function SegmentedControl({
 }: SegmentedControlProps) {
   const content = (
     <View
-      className={cn("flex-row gap-1 rounded-xl bg-secondary p-1", className)}
+      className={cn("flex-row gap-1 rounded-field bg-secondary p-1", className)}
     >
       {options.map((option) => {
         const isActive = option.value === value;
@@ -32,13 +32,13 @@ export function SegmentedControl({
             key={option.value}
             onPress={() => onChange(option.value)}
             className={cn(
-              "flex-1 items-center rounded-lg px-3 py-2",
+              "flex-1 items-center rounded-xl px-3 py-2.5",
               isActive ? "bg-card" : "bg-transparent",
             )}
           >
             <Text
               className={cn(
-                "text-sm font-medium",
+                "font-sans-semibold text-sm",
                 isActive ? "text-foreground" : "text-muted-foreground",
               )}
             >
