@@ -3,9 +3,10 @@
 # Builds/updates with the `preview` profile. Does NOT submit to TestFlight or
 # Play internal testing — see deploy-to-production.yml for that.
 name: Deploy to preview
-on:
-  push:
-    branches: ["main"]
+# Temporarily disabled — Expo build quota exhausted. Re-enable when builds are available.
+# on:
+#   push:
+#     branches: ["main"]
 jobs:
   fingerprint:
     name: Fingerprint
@@ -18,13 +19,14 @@ jobs:
     params:
       fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
       profile: preview
-  get_ios_build:
-    name: Check for existing ios build
-    needs: [fingerprint]
-    type: get-build
-    params:
-      fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
-      profile: preview
+  # iOS build lookup disabled.
+  # get_ios_build:
+  #   name: Check for existing ios build
+  #   needs: [fingerprint]
+  #   type: get-build
+  #   params:
+  #     fingerprint_hash: ${{ needs.fingerprint.outputs.ios_fingerprint_hash }}
+  #     profile: preview
   build_android:
     name: Build Android
     needs: [get_android_build]
@@ -33,14 +35,15 @@ jobs:
     params:
       platform: android
       profile: preview
-  build_ios:
-    name: Build iOS
-    needs: [get_ios_build]
-    if: ${{ !needs.get_ios_build.outputs.build_id }}
-    type: build
-    params:
-      platform: ios
-      profile: preview
+  # iOS build disabled.
+  # build_ios:
+  #   name: Build iOS
+  #   needs: [get_ios_build]
+  #   if: ${{ !needs.get_ios_build.outputs.build_id }}
+  #   type: build
+  #   params:
+  #     platform: ios
+  #     profile: preview
   publish_android_update:
     name: Publish Android update
     needs: [get_android_build]
@@ -49,14 +52,15 @@ jobs:
     params:
       branch: preview
       platform: android
-  publish_ios_update:
-    name: Publish iOS update
-    needs: [get_ios_build]
-    if: ${{ needs.get_ios_build.outputs.build_id }}
-    type: update
-    params:
-      branch: preview
-      platform: ios
+  # iOS OTA update disabled.
+  # publish_ios_update:
+  #   name: Publish iOS update
+  #   needs: [get_ios_build]
+  #   if: ${{ needs.get_ios_build.outputs.build_id }}
+  #   type: update
+  #   params:
+  #     branch: preview
+  #     platform: ios
   # Optional Slack notification. Uncomment and set SLACK_WEBHOOK_URL as an EAS
   # environment secret to enable.
   # notify_slack:
