@@ -44,7 +44,7 @@
     "aab:vendor:eas-local": "node scripts/build-local-eas.mjs vendor"
   },
   "dependencies": {
-    "@expo-google-fonts/dm-sans": "^0.2.3",
+    "@expo-google-fonts/urbanist": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@hookform/resolvers": "^3.9.0",
     "@react-native-async-storage/async-storage": "2.2.0",

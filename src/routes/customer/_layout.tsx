@@ -5,10 +5,12 @@ import { View } from "react-native";
 import { Slot } from "expo-router";
 import { useFonts } from "expo-font";
 import {
-  DMSans_400Regular,
-  DMSans_500Medium,
-  DMSans_700Bold,
-} from "@expo-google-fonts/dm-sans";
+  Urbanist_400Regular,
+  Urbanist_500Medium,
+  Urbanist_600SemiBold,
+  Urbanist_700Bold,
+  Urbanist_800ExtraBold,
+} from "@expo-google-fonts/urbanist";
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -28,9 +30,11 @@ initSentry();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    "DMSans-Regular": DMSans_400Regular,
-    "DMSans-Medium": DMSans_500Medium,
-    "DMSans-Bold": DMSans_700Bold,
+    "Urbanist-Regular": Urbanist_400Regular,
+    "Urbanist-Medium": Urbanist_500Medium,
+    "Urbanist-SemiBold": Urbanist_600SemiBold,
+    "Urbanist-Bold": Urbanist_700Bold,
+    "Urbanist-ExtraBold": Urbanist_800ExtraBold,
   });
 
   const { theme, hydrate } = useThemeStore();
