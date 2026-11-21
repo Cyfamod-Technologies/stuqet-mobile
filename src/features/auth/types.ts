@@ -1,5 +1,7 @@
 export interface Token {
   access: string;
+  /** Account type from the login response (`customer`, `delivery_boy`, `seller`). */
+  userType?: string;
 }
 
 /** How a person identifies themselves: the backend accepts email or phone. */
@@ -13,10 +15,13 @@ export interface LoginDTO {
   method?: IdentifierMethod;
   /** Vendor "Remember me" choice (persisted for the next cold start). */
   remember?: boolean;
+  /** Overrides the account table searched: the customer app tries `customer`, then `delivery_boy`. */
+  userType?: "customer" | "delivery_boy";
 }
 
 /** Shape returned by GET /auth/user (the authenticated `User` row). */
 export interface User {
+  id?: number;
   email: string | null;
   name?: string;
   phone?: string | null;

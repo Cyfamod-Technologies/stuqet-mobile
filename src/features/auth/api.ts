@@ -30,10 +30,10 @@ const AuthService = {
         // The API reads the phone number from the `email` field too.
         email: method === "phone" ? normalizePhone(data.email) : data.email,
         password: data.password,
-        user_type: isVendorApp ? "seller" : "customer",
+        user_type: data.userType ?? (isVendorApp ? "seller" : "customer"),
       },
     );
-    return { access: response.access_token };
+    return { access: response.access_token, userType: response.user?.type };
   },
 
   logout: async (_data: { token: string }): Promise<void> => {

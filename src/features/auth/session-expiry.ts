@@ -3,6 +3,14 @@ import { router } from "expo-router";
 import { axiosPrivate } from "~/lib/config/axios";
 import { useAuthStore } from "~/hooks/use-auth-store";
 import { deleteToken } from "~/lib/secure-storage";
+import {
+  isSessionExpiryHandled,
+  markSessionExpiryHandled,
+  resetSessionExpiry,
+  suppressSessionExpiry,
+} from "./session-expiry-state";
+
+export { resetSessionExpiry, suppressSessionExpiry };
 
 // Vendor app: an authenticated request answered with 401 means the Sanctum
 // token is no longer valid (revoked, deleted or expired). Instead of the silent
@@ -16,21 +24,10 @@ import { deleteToken } from "~/lib/secure-storage";
 // It runs after axios.ts's own interceptor, so its navigation wins.
 
 let registered = false;
-let handling = false;
-
-/** Call once after a successful login so the next expiry is handled again. */
-export function resetSessionExpiry() {
-  handling = false;
-}
-
-/** Call before an intentional logout so in-flight 401s don't show the screen. */
-export function suppressSessionExpiry() {
-  handling = true;
-}
 
 export async function expireSession() {
-  if (handling) return;
-  handling = true;
+  if (isSessionExpiryHandled()) return;
+  markSessionExpiryHandled();
   useAuthStore.getState().clearAuthToken();
   delete axiosPrivate.defaults.headers.common["Authorization"];
   await deleteToken();
