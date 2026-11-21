@@ -99,6 +99,14 @@ export function usePhotoUploads(max: number = MAX_PHOTOS) {
     const remaining = max - photos.length;
     if (remaining <= 0) return;
 
+    // Demo mode: hand back bundled illustrations instead of opening the picker.
+    if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { pickDemoPhotos } = require("~/demo") as typeof import("~/demo");
+      addAssets(pickDemoPhotos(Math.min(2, remaining)), remaining);
+      return;
+    }
+
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
@@ -117,6 +125,14 @@ export function usePhotoUploads(max: number = MAX_PHOTOS) {
   const takePhoto = useCallback(async () => {
     const remaining = max - photos.length;
     if (remaining <= 0) return;
+
+    // Demo mode: the simulator has no camera, so "take" a bundled photo.
+    if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { pickDemoPhotos } = require("~/demo") as typeof import("~/demo");
+      addAssets(pickDemoPhotos(1), remaining);
+      return;
+    }
 
     try {
       if (!(await ensureCameraPermission())) return;
