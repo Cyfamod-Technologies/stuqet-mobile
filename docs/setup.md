@@ -95,12 +95,14 @@ project in that client.
 
 ## Quality checks
 
-| Command             | What it does                                                                   |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `npm run lint`      | ESLint.                                                                        |
-| `npm run format`    | Format with Prettier (`format:check` to verify).                               |
-| `npm run typecheck` | `tsc --noEmit`.                                                                |
-| `npm run build`     | Export the JS bundle for **both** apps (`build:customer` then `build:vendor`). |
+| Command                      | What it does                                                                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint`               | ESLint.                                                                                                                      |
+| `npm run format`             | Format with Prettier (`format:check` to verify).                                                                             |
+| `npm run typecheck`          | `tsc --noEmit`.                                                                                                              |
+| `npm run typecheck:vendor`   | Generates the vendor typed routes, then type-checks with `tsconfig.vendor.json` (customer/rider files excluded).             |
+| `npm run typecheck:customer` | Same for the customer app with `tsconfig.customer.json` (vendor files excluded); restores the vendor route types afterwards. |
+| `npm run build`              | Export the JS bundle for **both** apps (`build:customer` then `build:vendor`).                                               |
 
 The first three run in CI on every PR into `main` (`.github/workflows/ci.yml`);
 PRs into `prod` skip them, since only `main` can open one.
@@ -197,3 +199,17 @@ no per-app track variable.
 Branching, preview vs production distribution, and EAS Workflows are documented
 in [dev.md](./dev.md). In short: PRs go into `main`; merging into `main` runs the
 preview pipeline; promoting to `prod` runs the production pipeline.
+
+## Typed routes and per-app type checks
+
+Both apps share `src/features`, but typed routes are generated for one app at a
+time (`npm run typegen:vendor|customer` writes `.expo/types`). A plain
+`npm run typecheck` with one app's route types therefore fails on the other
+app's screens (they navigate to routes that do not exist in this tree). Use
+`typecheck:vendor` and `typecheck:customer` locally: each generates its own
+route types and excludes the other app's feature files through
+`tsconfig.vendor.json` / `tsconfig.customer.json`. When you add a feature that
+belongs to one app only, add its folder to the other app's `exclude` list. CI
+has no generated route types, so `npm run typecheck` passes there as before.
+Shared code must not import route-navigating modules of one app; keep shared
+state in small files (see `src/features/auth/session-expiry-state.ts`).

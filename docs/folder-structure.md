@@ -110,6 +110,28 @@ Domain feature modules, one folder per domain. The template ships `auth` and
 - `schemas.ts` — Zod validation schemas (where present)
 - `constants.ts` — feature constants (where present)
 
+### Customer and rider features
+
+| Folder                | Holds                                                                             |
+| --------------------- | --------------------------------------------------------------------------------- |
+| `customer-onboarding` | intro, welcome, create account (verify first), role picker, set-up steps          |
+| `customer-food`       | home, search, vendor menu, dish; `useFoodNav`; dish, vendor and search components |
+| `customer-cart`       | cart, checkout, delivery addresses, order placed; cart and checkout hooks         |
+| `customer-orders`     | orders list, tracking with map, chat, rating sheet, notifications (both roles)    |
+| `customer-account`    | profile, appearance, addresses and profile API, address form, demo tools          |
+| `rider-onboarding`    | rider application steps (profile, vehicle, documents, payout) and under review    |
+| `rider-deliveries`    | rider home, deliveries, delivery detail and confirm, earnings                     |
+| `rider-account`       | rider profile API, vehicle and documents, payout details                          |
+
+Each has `api.ts`, `hooks.ts`, `types.ts`, `screens/` and (where it has forms)
+`schemas.ts`; the route files under `src/routes/customer` only re-export screens.
+
+### Demo data
+
+`src/demo` is the vendor demo; `src/demo/customer` and `src/demo/rider` are the
+customer and rider ones (`data/`, `handlers`, `db.ts`, generated `images/`).
+`scripts/generate-demo-customer-images.py` draws the customer images.
+
 ## `src/hooks`
 
 Cross-feature shared hooks (e.g. `use-auth-store.ts`, the Zustand auth token

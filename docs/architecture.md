@@ -38,15 +38,48 @@ a build targets:
 
 Each route tree has the same shape:
 
-- `index.tsx` — splash/landing screen; redirects to `(tabs)` when a token is
-  present, otherwise shows a "Get started" CTA into `(auth)/login`.
-- `(auth)/` — unauthenticated screens: `login`, `forgot-password`,
-  `reset-password`, with their own `_layout.tsx`.
-- `(tabs)/` — authenticated tab navigator (`_layout.tsx`) with two tabs:
-  - `index` — Home
-  - `more/` — nested stack: `index`, `settings`
+- `index.tsx` — splash/landing screen; redirects to Home when a token is
+  present, otherwise shows a "Get started" CTA (the customer app continues to
+  the intro slides, the vendor app to its welcome screen).
+- `(auth)/` — unauthenticated screens with their own `_layout.tsx`. Vendor:
+  `login`, `forgot-password`, `reset-password` and the status screens.
+  Customer: `intro`, `welcome`, `create-account`, `role`, `terms`, `privacy`,
+  `login`, `forgot-password`, `reset-password`, `reset-success`.
+- `(tabs)/` — authenticated tab navigator (`_layout.tsx`). Each tab is a folder
+  with its own stack (`_layout.tsx` = `PlainStack`); pushed screens hide the tab
+  bar.
 
 Add each app's own tabs and nested stacks to its route tree as it grows.
+
+### Customer app: one app, two roles
+
+The customer app serves **customers** and **riders**. `useRoleStore`
+(`src/lib/stores/role-store.ts`, persisted) holds the open side and is set from
+the account type at sign-in (`customer` or `delivery_boy`), by the role picker
+and by Profile > "Switch to ordering food" / "Become a rider".
+
+- Tabs: customers get Home, Search, Orders, Profile; riders get Home,
+  Deliveries, Earnings, Profile. All six folders exist; the tab bar hides the
+  ones that do not apply (`href: null`). Home and Profile pick their content by
+  role.
+- Restaurant, dish, cart, checkout, address, order-placed, tracking, chat and
+  notification screens exist once per tab stack as one-line re-exports of the
+  same screen, so a push stays in the tab it started in and Back returns there.
+  `useFoodNav()` (`customer-food/navigation.ts`) builds those paths.
+- `setup/` (school, food types, address, notifications, fingerprint, all set)
+  and `rider-setup/` (profile, vehicle, documents, payout, review) are plain
+  stacks outside the tabs for onboarding.
+- Features: `customer-onboarding`, `customer-food`, `customer-cart`,
+  `customer-orders`, `customer-account`, `rider-onboarding`, `rider-deliveries`,
+  `rider-account`. The customer food endpoints (`/food/*`) and the rider
+  application routes are proposals; each `api.ts` lists them as `TODO(backend)`.
+
+### Demo mode
+
+`EXPO_PUBLIC_DEMO_MODE="true"` swaps the axios adapter for an in-memory API:
+`src/demo` for the vendor build and `src/demo/customer` + `src/demo/rider` for
+the customer build (see `src/demo/README.md` and `src/demo/customer/README.md`).
+`src/demo/flag.ts` is the only file feature code imports at module level.
 
 ## Root layout (`src/routes/<route>/_layout.tsx`)
 

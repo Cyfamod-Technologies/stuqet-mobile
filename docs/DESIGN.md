@@ -115,6 +115,10 @@ States: focus → 1.5px `primary` border; error → 1.5px `destructive-text` bor
 | `BackButton`                                        | 44px round white button                                                                                                                               |
 | `StepProgress`                                      | "Step 2 of 3" segmented bar for wizards                                                                                                               |
 | `HeroBadge`                                         | concentric tinted circles around an icon (status screens)                                                                                             |
+| `StarRating`                                        | five stars: active filled brand orange, inactive outlined; `onChange` makes it tappable (rating form)                                                 |
+| `Chip`                                              | outlined 40px filter pill (Home categories, Search filters, Deliveries status); selected = tint + brand border                                        |
+| `QuantityStepper`                                   | round − / + around the count (Cart, Dish)                                                                                                             |
+| `OptionCard`                                        | selectable card with an icon tile and a radio or tick (school, vehicle, food types)                                                                   |
 
 ### SegmentedControl (pill)
 
@@ -267,6 +271,20 @@ an inline error on the same failure.
 - In development, React Native's own LogBox toast (white, bottom) and, in Expo
   Go, the floating gear button are separate native layers and are not part of
   this system.
+
+## Appearance
+
+The theme store holds a preference: `light`, `dark` or `system` ("Match my
+phone", which follows the phone's setting live). The customer and rider
+Appearance screen sets it; the vendor app keeps its light/dark switch.
+
+## Customer and rider app
+
+Shops are always shown with `ShopLogo` (Mama T Kitchen has a logo, Riverside
+Grill shows its initials), ratings with `StarRating` or the single filled star
+of `RatingLine`, and dishes with `FoodThumb` (picture on a peach tile with the
+fork icon as fallback). Onboarding buttons sit directly on the page
+(`SetupFooter`); ordering screens use the white `ActionBar`.
 
 ## Adding to the system
 
