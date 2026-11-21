@@ -61,15 +61,20 @@ function rejectWhenResultFalse(instance: AxiosInstance) {
 rejectWhenResultFalse(axiosInstance);
 rejectWhenResultFalse(axiosPrivate);
 
-// Demo mode (vendor app): answer every request from the bundled sample data.
+// Demo mode: answer every request from the bundled sample data, the vendor
+// data in the vendor app and the customer + rider data in the customer app.
 // The literal env check lets Metro drop src/demo from release builds.
-if (
-  process.env.EXPO_PUBLIC_DEMO_MODE === "true" &&
-  process.env.EXPO_PUBLIC_ROUTE === "vendor"
-) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { installDemoAdapter } = require("~/demo") as typeof import("~/demo");
-  installDemoAdapter([axiosInstance, axiosPrivate]);
+if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+  if (process.env.EXPO_PUBLIC_ROUTE === "vendor") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { installDemoAdapter } = require("~/demo") as typeof import("~/demo");
+    installDemoAdapter([axiosInstance, axiosPrivate]);
+  } else {
+    const { installCustomerDemoAdapter } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("~/demo/customer") as typeof import("~/demo/customer");
+    installCustomerDemoAdapter([axiosInstance, axiosPrivate]);
+  }
 }
 
 async function logout() {
@@ -120,6 +125,26 @@ axiosPrivate.interceptors.response.use(
     return Promise.reject(error);
   },
 );
+
+// Customer + rider app: any 401 means the Sanctum token is gone (revoked,
+// expired, or "Expire my session" in demo mode), so go back to the login screen.
+// The vendor app has its own "Session expired" screen (features/auth/session-expiry.ts).
+if (process.env.EXPO_PUBLIC_ROUTE !== "vendor") {
+  let leaving = false;
+  axiosPrivate.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      if (error?.response?.status === 401 && !leaving) {
+        leaving = true;
+        await logout();
+        setTimeout(() => {
+          leaving = false;
+        }, 2000);
+      }
+      return Promise.reject(error);
+    },
+  );
+}
 
 axiosRetry(axiosPrivate, {
   retries: 2,
