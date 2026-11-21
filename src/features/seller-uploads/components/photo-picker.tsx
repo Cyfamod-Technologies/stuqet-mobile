@@ -143,7 +143,7 @@ export function PhotoPicker({
             accessibilityRole="button"
             accessibilityLabel="Add photo"
             accessibilityHint={`Take a photo or choose up to ${max} from your library`}
-            className={`${tile} border-primary/50 items-center justify-center gap-0.5 rounded-[18px] border-[1.5px] border-dashed bg-tint active:opacity-80`}
+            className={`${tile} items-center justify-center gap-0.5 rounded-[18px] border-[1.5px] border-dashed border-primary bg-tint active:opacity-80`}
           >
             <Ionicons
               name="camera-outline"

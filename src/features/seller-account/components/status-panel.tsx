@@ -29,7 +29,7 @@ export function StatusPanel({
       className={cn(
         "flex-row items-start gap-3 rounded-[20px] border px-4 py-3.5",
         success
-          ? "border-success/30 bg-success-tint"
+          ? "border-success-border bg-success-tint"
           : "border-tint-border bg-tint",
       )}
     >

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useShopType } from "~/features/seller-shop/hooks";
 import {
   ActivityIndicator,
   FlatList,
@@ -51,7 +52,11 @@ export function CatalogueScreen() {
   const colors = useThemeColors();
   const { add } = useLocalSearchParams<{ add?: string }>();
 
-  const [type, setType] = useState<ListingType>("product");
+  // A food-only shop opens on its Food tab; the seller's own choice wins after.
+  const shopType = useShopType();
+  const [chosenType, setType] = useState<ListingType | null>(null);
+  const type: ListingType =
+    chosenType ?? (shopType === "food" ? "food" : "product");
   const [searchText, setSearchText] = useState("");
   const search = useDebouncedValue(searchText.trim());
   // TODO(backend): these filters run on the loaded pages only (no server
