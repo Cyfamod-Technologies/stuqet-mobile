@@ -49,7 +49,22 @@ export const QUERY_KEYS = {
       commissions: ["seller", "money", "commissions"] as const,
     },
     verification: ["seller", "verification"] as const,
+    account: {
+      resolve: (bankCode: string, accountNumber: string) =>
+        ["seller", "account", "resolve", bankCode, accountNumber] as const,
+    },
+    support: {
+      tickets: ["seller", "support", "tickets"] as const,
+      ticket: (id: string | number) =>
+        ["seller", "support", "ticket", String(id)] as const,
+    },
     notifications: ["seller", "notifications"] as const,
+    messages: {
+      all: ["seller", "messages"] as const,
+      conversations: ["seller", "messages", "conversations"] as const,
+      thread: (id: string | number) =>
+        ["seller", "messages", "thread", String(id)] as const,
+    },
   },
   appVersion: {
     config: ["appVersion", "config"] as const,
