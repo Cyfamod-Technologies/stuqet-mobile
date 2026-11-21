@@ -191,6 +191,14 @@ export const SHADOWS = {
     shadowRadius: 8,
     elevation: 4,
   },
+  // Toast floating over content: 0 8px 24px rgba(27,19,12,.16).
+  toast: {
+    shadowColor: "#1B130C",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    elevation: 8,
+  },
   // Bottom sheet: 0 -12px 40px rgba(27,19,12,.25).
   sheet: {
     shadowColor: "#1B130C",

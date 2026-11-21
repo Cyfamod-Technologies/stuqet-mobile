@@ -28,7 +28,8 @@ export const handleApiError = (
 
   if (isApiUnreachableError(error)) {
     notifyError({
-      message: "The service is currently unavailable. Please check back later.",
+      message: "No connection",
+      description: "Check your internet and try again.",
     });
     return;
   }
@@ -67,7 +68,8 @@ export const handleApiError = (
       break;
     case 500:
       notifyError({
-        message: "Internal server error. Please try again later.",
+        message: "Something went wrong",
+        description: "Please try again in a moment.",
       });
       break;
     default:
