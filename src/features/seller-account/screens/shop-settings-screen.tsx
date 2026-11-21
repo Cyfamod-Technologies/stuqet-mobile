@@ -4,7 +4,10 @@ import { useRouter } from "expo-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
+import { Card } from "~/components/ui/card";
 import { EmptyState } from "~/components/ui/empty-state";
+import { ListRow } from "~/components/ui/list-row";
+import { MediaPickerSheet } from "~/components/ui/media-picker-sheet";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import { FormField } from "~/components/forms/form-field";
@@ -13,10 +16,17 @@ import { useShopInfo } from "~/features/seller-shop/hooks";
 import { useThemeColors } from "~/lib/colors";
 import { notifyError, notifySuccess } from "~/lib/utils/toast";
 import { FormScreen } from "../components/form-screen";
-import { ShopLogo } from "../components/shop-logo";
+import { IconFormField } from "../components/icon-field";
+import { ShopLogo } from "~/components/shop-logo";
 import { useUpdateShopProfile, useUploadImage } from "../hooks";
-import { pickImage } from "../pick-image";
+import {
+  afterSheetCloses,
+  pickImage,
+  takePhoto,
+  uploadFilename,
+} from "../pick-image";
 import { shopProfileSchema, type ShopProfileValues } from "../schemas";
+import type { PickedImage } from "../types";
 
 interface PendingLogo {
   uploadId: string;
@@ -27,11 +37,18 @@ function hasUploadedLogo(shop: ShopInfo): boolean {
   return Boolean(shop.upload_id) && shop.upload_id !== "0";
 }
 
+function bannerSummary(shop: ShopInfo): string {
+  const count = shop.sliders?.length ?? 0;
+  if (count === 0) return "No banners yet. Add one";
+  return `${count} ${count === 1 ? "banner" : "banners"} on your shop page`;
+}
+
 function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
   const router = useRouter();
   const update = useUpdateShopProfile();
   const upload = useUploadImage();
   const [logo, setLogo] = useState<PendingLogo | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const { control, handleSubmit } = useForm<ShopProfileValues>({
     resolver: zodResolver(shopProfileSchema),
@@ -42,18 +59,22 @@ function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
     },
   });
 
-  const changeLogo = async () => {
-    const image = await pickImage({ square: true, base64: true });
+  const uploadLogo = (image: PickedImage | null) => {
     if (!image) return;
     if (!image.base64) {
       notifyError({ message: "We couldn't read that photo. Try another one." });
       return;
     }
     upload.mutate(
-      { base64: image.base64, filename: `shop-logo-${Date.now()}.jpg` },
+      { base64: image.base64, filename: uploadFilename("shop-logo") },
       { onSuccess: (uploadId) => setLogo({ uploadId, uri: image.uri }) },
     );
   };
+
+  const choose = (pick: typeof pickImage) => () =>
+    afterSheetCloses(() => {
+      void pick({ square: true, base64: true }).then(uploadLogo);
+    });
 
   const onSubmit = handleSubmit((values) => {
     update.mutate(
@@ -91,14 +112,25 @@ function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
         </Button>
       }
     >
+      <Card className="overflow-hidden p-0">
+        <ListRow
+          icon="images-outline"
+          title="Shop banners"
+          subtitle={bannerSummary(shop)}
+          onPress={() => router.push("/(tabs)/more/shop-banners")}
+          last
+        />
+      </Card>
+
       <View className="flex-row items-center gap-3.5">
-        <ShopLogo name={shop.name} uri={logoUri} size="lg" />
+        <ShopLogo name={shop.name} uri={logoUri} size={72} />
         <Pressable
-          onPress={changeLogo}
+          onPress={() => setSheetOpen(true)}
           disabled={upload.isPending}
           accessibilityRole="button"
           accessibilityLabel="Change logo"
           hitSlop={8}
+          className="min-h-11 justify-center"
         >
           <Text variant="link" className="text-[15px] underline">
             {upload.isPending ? "Uploading…" : "Change logo"}
@@ -113,18 +145,29 @@ function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
         placeholder="Shop name"
         autoCapitalize="words"
       />
-      <FormField
+      <IconFormField
         control={control}
         name="phone"
-        type="phone"
+        icon="call-outline"
         label="Shop phone"
         placeholder="Phone"
+        keyboardType="phone-pad"
+        autoComplete="tel"
       />
-      <FormField
+      <IconFormField
         control={control}
         name="address"
+        icon="location-outline"
         label="Shop address"
         placeholder="Address"
+      />
+
+      <MediaPickerSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Add a photo"
+        onTakePhoto={choose(takePhoto)}
+        onChooseLibrary={choose(pickImage)}
       />
     </FormScreen>
   );
@@ -137,7 +180,8 @@ export function ShopSettingsScreen() {
   if (shop.isPending) {
     return (
       <FormScreen title="Shop settings">
-        <Skeleton className="h-16 w-40 rounded-2xl" />
+        <Skeleton className="h-16 rounded-2xl" />
+        <Skeleton className="h-[72px] w-48 rounded-2xl" />
         <Skeleton className="h-[52px] rounded-2xl" />
         <Skeleton className="h-[52px] rounded-2xl" />
         <Skeleton className="h-[52px] rounded-2xl" />

@@ -4,7 +4,7 @@ import { Card } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import type { ShopInfo } from "~/features/seller-shop/types";
-import { ShopLogo } from "./shop-logo";
+import { ShopLogo } from "~/components/shop-logo";
 
 export type VerificationStatus = "verified" | "review" | "unverified";
 
@@ -26,7 +26,7 @@ export function ProfileCard({ shop }: { shop: ShopInfo }) {
   return (
     <Card className="flex-row items-center gap-3.5 p-4">
       <ShopLogo name={shop.name} uri={hasLogo ? shop.logo : null} />
-      <View className="flex-1 gap-0.5">
+      <View className="min-w-0 flex-1 gap-0.5">
         <Text variant="heading" className="text-[19px]" numberOfLines={1}>
           {shop.name}
         </Text>

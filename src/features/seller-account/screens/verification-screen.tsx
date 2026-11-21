@@ -5,12 +5,12 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
 import { EmptyState } from "~/components/ui/empty-state";
-import { Notice } from "~/components/ui/notice";
 import { Skeleton } from "~/components/ui/skeleton";
 import { useShopInfo } from "~/features/seller-shop/hooks";
 import { useThemeColors } from "~/lib/colors";
 import { notifySuccess } from "~/lib/utils/toast";
 import { FormScreen } from "../components/form-screen";
+import { StatusPanel } from "../components/status-panel";
 import { VerificationFields } from "../components/verification-fields";
 import { useSubmitVerification, useVerificationForm } from "../hooks";
 import { createVerificationSchema, emptyVerificationValues } from "../schemas";
@@ -51,10 +51,13 @@ function VerificationForm({ elements }: VerificationFormProps) {
         </Button>
       }
     >
-      <Notice tone="info" title="Your shop is not verified">
+      <StatusPanel
+        icon="shield-checkmark-outline"
+        title="Your shop is not verified"
+      >
         Verified shops get a badge on their storefront. Documents are reviewed
         before approval.
-      </Notice>
+      </StatusPanel>
       <VerificationFields elements={elements} control={control} />
     </FormScreen>
   );
@@ -106,9 +109,13 @@ export function VerificationScreen() {
   if (verified) {
     return (
       <FormScreen title="Verification" refreshControl={refresh}>
-        <Notice tone="success" title="Your shop is verified">
+        <StatusPanel
+          tone="success"
+          icon="shield-checkmark"
+          title="Your shop is verified"
+        >
           Your storefront shows the verified badge.
-        </Notice>
+        </StatusPanel>
       </FormScreen>
     );
   }
@@ -116,10 +123,10 @@ export function VerificationScreen() {
   if (submitted) {
     return (
       <FormScreen title="Verification" refreshControl={refresh}>
-        <Notice tone="warning" title="Under review">
+        <StatusPanel icon="time-outline" title="Under review">
           We received your documents. You will see the verified badge here once
           they are approved.
-        </Notice>
+        </StatusPanel>
       </FormScreen>
     );
   }

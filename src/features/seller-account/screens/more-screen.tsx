@@ -7,7 +7,9 @@ import { ScreenHeader } from "~/components/ui/screen-header";
 import { Text } from "~/components/ui/text";
 import { useLogout } from "~/features/auth/hooks";
 import { useShopInfo } from "~/features/seller-shop/hooks";
+import { isSupportTicketsEnabled } from "~/features/seller-support/constants";
 import { useThemeColors } from "~/lib/colors";
+import { isThemeSwitchEnabled } from "~/lib/config/features";
 import {
   ProfileCard,
   ProfileCardSkeleton,
@@ -63,6 +65,7 @@ export function MoreScreen() {
             onPress={() => shop.refetch()}
             accessibilityRole="button"
             hitSlop={8}
+            className="min-h-11 justify-center"
           >
             <Text variant="link">Try again</Text>
           </Pressable>
@@ -75,7 +78,7 @@ export function MoreScreen() {
         <ListRow
           icon="storefront-outline"
           title="Shop settings"
-          subtitle="Name, logo, phone, address"
+          subtitle="Name, logo, address, banners"
           onPress={() => router.push("/(tabs)/more/shop-settings")}
         />
         <ListRow
@@ -104,10 +107,39 @@ export function MoreScreen() {
           onPress={() => router.push("/notifications")}
         />
         <ListRow
-          icon="color-palette-outline"
-          title="Appearance"
-          subtitle="Light or dark theme"
-          onPress={() => router.push("/(tabs)/more/settings")}
+          icon="chatbubble-outline"
+          title="Messages"
+          onPress={() => router.push("/messages")}
+          last={!isSupportTicketsEnabled}
+        />
+        {isSupportTicketsEnabled ? (
+          <ListRow
+            icon="headset-outline"
+            title="Support tickets"
+            onPress={() => router.push("/(tabs)/more/support")}
+            last
+          />
+        ) : null}
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        {isThemeSwitchEnabled ? (
+          <ListRow
+            icon="color-palette-outline"
+            title="Appearance"
+            subtitle="Light or dark theme"
+            onPress={() => router.push("/(tabs)/more/settings")}
+          />
+        ) : null}
+        <ListRow
+          icon="document-text-outline"
+          title="Terms"
+          onPress={() => router.push("/legal/terms")}
+        />
+        <ListRow
+          icon="lock-closed-outline"
+          title="Privacy policy"
+          onPress={() => router.push("/legal/privacy")}
           last
         />
       </Card>

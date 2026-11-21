@@ -1,26 +1,48 @@
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { MediaPickerSheet } from "~/components/ui/media-picker-sheet";
 import { Text } from "~/components/ui/text";
 import { useThemeColors } from "~/lib/colors";
 import { cn } from "~/lib/utils/helpers";
-import type { PickedFile } from "../types";
+import {
+  afterSheetCloses,
+  pickDocument,
+  pickImage,
+  takePhoto,
+} from "../pick-image";
+import type { PickedFile, PickedImage } from "../types";
 
 interface FileFieldProps {
   label: string;
   value: PickedFile | null;
   error?: string;
-  onPress: () => void;
+  onChange: (file: PickedFile) => void;
 }
 
-// Dashed upload tile from the Verification design. Photos only for now (no
-// document picker is installed), hence the "JPG or PNG" hint.
-export function FileField({ label, value, error, onPress }: FileFieldProps) {
+function fromImage(image: PickedImage): PickedFile {
+  return { uri: image.uri, name: image.name, mimeType: image.mimeType };
+}
+
+// Dashed upload tile from the Verification design. Tapping it opens the
+// "Upload a document" sheet: take a photo, choose from the library, or choose
+// a file (JPG, PNG or PDF).
+export function FileField({ label, value, error, onChange }: FileFieldProps) {
   const colors = useThemeColors();
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const handle = (pick: () => Promise<PickedFile | PickedImage | null>) => () =>
+    afterSheetCloses(() => {
+      void pick().then((result) => {
+        if (!result) return;
+        onChange("base64" in result ? fromImage(result) : result);
+      });
+    });
 
   return (
     <View className="gap-1.5">
       <Pressable
-        onPress={onPress}
+        onPress={() => setSheetOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={
           value ? `${label}: ${value.name}. Change file` : `Upload ${label}`
@@ -30,19 +52,23 @@ export function FileField({ label, value, error, onPress }: FileFieldProps) {
           error ? "border-destructive" : "border-tint-border",
         )}
       >
-        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-card">
+        <View className="h-11 w-11 items-center justify-center rounded-[14px] bg-card">
           <Ionicons
             name={value ? "checkmark-circle" : "cloud-upload-outline"}
             size={22}
             color={value ? colors.success : colors["brand-text"]}
           />
         </View>
-        <View className="flex-1 gap-0.5">
-          <Text variant="heading" className="text-[15px]">
+        <View className="min-w-0 flex-1 gap-0.5">
+          <Text variant="heading" className="text-[15px]" numberOfLines={2}>
             {label}
           </Text>
-          <Text variant="caption" className="text-[13px]" numberOfLines={1}>
-            {value ? `${value.name} · Tap to change` : "Photo, JPG or PNG"}
+          <Text
+            variant="caption"
+            className="font-sans-medium text-[13px]"
+            numberOfLines={1}
+          >
+            {value ? `${value.name} · Tap to change` : "JPG, PNG or PDF"}
           </Text>
         </View>
       </Pressable>
@@ -51,6 +77,15 @@ export function FileField({ label, value, error, onPress }: FileFieldProps) {
           {error}
         </Text>
       ) : null}
+
+      <MediaPickerSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Upload a document"
+        onTakePhoto={handle(() => takePhoto())}
+        onChooseLibrary={handle(() => pickImage())}
+        onChooseFile={handle(pickDocument)}
+      />
     </View>
   );
 }

@@ -1,8 +1,11 @@
 import { axiosPrivate } from "~/lib/config/axios";
 import { VERIFICATION_FIELD_TYPES } from "./constants";
 import type {
+  BannersPayload,
   PayoutPayload,
   PickedFile,
+  ResolveAccountInput,
+  ResolvedAccount,
   ShopProfilePayload,
   VerificationElement,
   VerificationFieldType,
@@ -51,6 +54,41 @@ const AccountService = {
       payload,
     );
     return data.message ?? "Payment info updated successfully";
+  },
+
+  // POST /seller/shop-update (sliders only). A request without name/address
+  // and without the payment, social or location keys takes the "sliders"
+  // branch of ShopController::update.
+  updateBanners: async (payload: BannersPayload): Promise<string> => {
+    const { data } = await axiosPrivate.post<{ message?: string }>(
+      "/seller/shop-update",
+      payload,
+    );
+    return data.message ?? "Shop banners updated successfully";
+  },
+
+  // TODO(backend): this endpoint does not exist yet. The Paystack secret key
+  // cannot live in the app, so the backend must proxy "resolve account":
+  //   POST /seller/bank/resolve { bank_code, account_number }
+  //   200 { result: true, data: { account_name: "CAMPUS MART LTD" } }
+  //   "account not found" as HTTP 4xx or 200 { result: false, message }
+  // Only called when EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE is "true".
+  resolveBankAccount: async ({
+    bankCode,
+    accountNumber,
+  }: ResolveAccountInput): Promise<ResolvedAccount> => {
+    const { data } = await axiosPrivate.post<{
+      data?: { account_name?: string };
+      account_name?: string;
+    }>("/seller/bank/resolve", {
+      bank_code: bankCode,
+      account_number: accountNumber,
+    });
+    const accountName = (data.data?.account_name ?? data.account_name ?? "")
+      .trim()
+      .replace(/\s+/g, " ");
+    if (!accountName) throw new Error("Account not found");
+    return { accountName };
   },
 
   // POST /file/image-upload { image: base64, filename } returns `upload_id`.

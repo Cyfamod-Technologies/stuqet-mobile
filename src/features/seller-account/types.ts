@@ -33,6 +33,28 @@ export interface PayoutPayload {
   bank_routing_no: string;
 }
 
+/** A bank the seller can pick, with the provider code the resolver needs. */
+export interface BankOption {
+  name: string;
+  code: string;
+}
+
+/** Fields of POST /seller/shop-update for the "banners" group. */
+export interface BannersPayload {
+  /** Comma-separated upload ids, in display order ("" removes them all). */
+  sliders: string;
+}
+
+/** What the (proposed) bank resolver returns. */
+export interface ResolvedAccount {
+  accountName: string;
+}
+
+export interface ResolveAccountInput {
+  bankCode: string;
+  accountNumber: string;
+}
+
 export type VerificationFieldType =
   "text" | "file" | "select" | "multi_select" | "radio";
 

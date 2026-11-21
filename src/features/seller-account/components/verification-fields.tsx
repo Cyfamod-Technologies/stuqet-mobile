@@ -1,7 +1,5 @@
 import { Controller, type Control } from "react-hook-form";
 import { Input } from "~/components/ui/input";
-import { Select } from "~/components/ui/select";
-import { pickImage } from "../pick-image";
 import type {
   PickedFile,
   VerificationElement,
@@ -9,6 +7,7 @@ import type {
 } from "../types";
 import { ChoiceField } from "./choice-field";
 import { FileField } from "./file-field";
+import { PickerField } from "./picker-field";
 
 interface VerificationFieldsProps {
   elements: VerificationElement[];
@@ -52,21 +51,12 @@ export function VerificationFields({
                     label={element.label}
                     value={asFile(field.value)}
                     error={error}
-                    onPress={async () => {
-                      const image = await pickImage();
-                      if (image) {
-                        field.onChange({
-                          uri: image.uri,
-                          name: image.name,
-                          mimeType: image.mimeType,
-                        } satisfies PickedFile);
-                      }
-                    }}
+                    onChange={field.onChange}
                   />
                 );
               case "select":
                 return (
-                  <Select
+                  <PickerField
                     label={element.label}
                     value={asString(field.value)}
                     onValueChange={field.onChange}

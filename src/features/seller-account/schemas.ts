@@ -39,7 +39,7 @@ export const payoutSchema = z
     }
     if (!values.bank_payment_status) return;
     const required = [
-      ["bank_name", "Enter the bank name"],
+      ["bank_name", "Choose your bank"],
       ["bank_acc_name", "Enter the account name"],
       ["bank_acc_no", "Enter the 10-digit account number"],
     ] as const;
