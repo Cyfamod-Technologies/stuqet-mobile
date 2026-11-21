@@ -11,19 +11,14 @@ import Animated, {
 import { Logo } from "~/components/logo";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
-import { isVendorApp } from "~/lib/config/features";
 import { hasToken } from "~/lib/secure-storage";
 import { useThemeStore } from "~/lib/stores/theme-store";
 
-const COPY = isVendorApp
-  ? {
-      title: "Run your shop from your phone",
-      body: "Manage orders, products and payouts in one place.",
-    }
-  : {
-      title: "Everything on campus, delivered",
-      body: "Order from your favourite shops and track it to your door.",
-    };
+// Customer-app copy. The vendor app has its own splash and welcome screens.
+const COPY = {
+  title: "Everything on campus, delivered",
+  body: "Order from your favourite shops and track it to your door.",
+};
 
 // Splash → redirects signed-in users to the tabs, otherwise shows the welcome
 // pitch with a "Get started" CTA into sign-in.

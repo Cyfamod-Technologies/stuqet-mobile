@@ -84,7 +84,9 @@ export function ResetPasswordScreen() {
       />
 
       <Button
-        onPress={handleSubmit((values) => resetPassword(values))}
+        onPress={handleSubmit((values) =>
+          resetPassword({ code: values.otp, password: values.password }),
+        )}
         loading={isPending || isSubmitting}
       >
         Reset password

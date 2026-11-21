@@ -13,12 +13,11 @@ import { SocialButton } from "~/components/ui/social-button";
 import { Text } from "~/components/ui/text";
 import { useLogin } from "~/features/auth/hooks";
 import { loginSchema, type LoginFormValues } from "~/features/auth/schemas";
-import { isSocialLoginEnabled, isVendorApp } from "~/lib/config/features";
+import { isSocialLoginEnabled } from "~/lib/config/features";
 import { notifyInfo } from "~/lib/utils/toast";
 
-const SUBTITLE = isVendorApp
-  ? "Sign in to manage your shop"
-  : "Sign in to keep shopping";
+// Customer-app login. The vendor app has its own screen (vendor-login-screen).
+const SUBTITLE = "Sign in to keep shopping";
 
 // TODO: wire Google / Apple sign-in once the backend exposes OAuth endpoints.
 const onSocialPress = (provider: "Google" | "Apple") =>

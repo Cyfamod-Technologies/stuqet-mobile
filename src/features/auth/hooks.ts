@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { router } from "expo-router";
 import { axiosPrivate } from "~/lib/config/axios";
+import { isVendorApp } from "~/lib/config/features";
 import { saveToken, deleteToken } from "~/lib/secure-storage";
 import { handleApiError } from "~/lib/utils/error-handler";
 import { notifyError, notifySuccess } from "~/lib/utils/toast";
@@ -9,6 +10,10 @@ import { useAuthStore } from "~/hooks/use-auth-store";
 import { QUERY_KEYS } from "~/lib/utils/query-keys";
 import type { ApiErrorResponse } from "~/types/api";
 import AuthService from "./api";
+import { suppressSessionExpiry } from "./session-expiry";
+
+// Customer-app auth hooks (the customer routes use these as-is). The vendor
+// app has its own login / reset flow with extra screens: see vendor-hooks.ts.
 
 export function useGetProfile() {
   return useQuery({
@@ -56,8 +61,14 @@ export function useLogout() {
   const { clearAuthToken, token } = useAuthStore();
 
   return useMutation({
-    mutationFn: () =>
-      token ? AuthService.logout({ token: token.access }) : Promise.resolve(),
+    mutationFn: () => {
+      // An intentional logout must not trip the vendor "Session expired" screen
+      // when an in-flight request answers 401.
+      if (isVendorApp) suppressSessionExpiry();
+      return token
+        ? AuthService.logout({ token: token.access })
+        : Promise.resolve();
+    },
     onSuccess: async () => {
       clearAuthToken();
       await deleteToken();
@@ -82,7 +93,7 @@ export function useForgotPassword() {
       });
       router.push({
         pathname: "/(auth)/reset-password",
-        params: { email: variables.email },
+        params: { email: variables.identifier },
       });
     },
     onError: (error) => {

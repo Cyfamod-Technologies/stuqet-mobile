@@ -48,7 +48,9 @@ export function ForgotPasswordScreen() {
       />
 
       <Button
-        onPress={handleSubmit((values) => sendReset(values))}
+        onPress={handleSubmit((values) =>
+          sendReset({ identifier: values.email, method: "email" }),
+        )}
         loading={isPending || isSubmitting}
       >
         Send reset code
