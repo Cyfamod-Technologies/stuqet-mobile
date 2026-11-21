@@ -88,3 +88,16 @@ export function parseTypedAmount(value: string): number {
   const cleaned = value.replace(/[,\s]/g, "");
   return /^\d+(\.\d{1,2})?$/.test(cleaned) ? Number(cleaned) : NaN;
 }
+
+/**
+ * "Bank payment TRX ID:88213" (as composed by the API) shown as
+ * "Bank payment, TRX 88213", the way the Money design writes it.
+ */
+export function tidyPaymentMethod(value: string): string {
+  return value.replace(/\s*TRX ID:\s*/i, ", TRX ");
+}
+
+/** The currency symbol of an API-formatted money string ("₦86,400" gives "₦"). */
+export function currencySymbol(reference: string | null | undefined): string {
+  return reference?.match(/^[^\d-]*/)?.[0]?.trim() ?? "";
+}

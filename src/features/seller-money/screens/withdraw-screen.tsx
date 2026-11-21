@@ -13,7 +13,13 @@ import { FormScreen } from "~/features/seller-account/components/form-screen";
 import { useShopInfo } from "~/features/seller-shop/hooks";
 import { useMoneySettings, useRequestWithdrawal } from "../hooks";
 import { createWithdrawSchema, type WithdrawFormValues } from "../schemas";
-import { formatLike, parseMoney, parseTypedAmount, tidyMoney } from "../utils";
+import {
+  currencySymbol,
+  formatLike,
+  parseMoney,
+  parseTypedAmount,
+  tidyMoney,
+} from "../utils";
 
 function payoutSummary(
   bankName: string | null,
@@ -77,6 +83,7 @@ export function WithdrawScreen() {
     );
   }
 
+  const symbol = currencySymbol(balanceText);
   const hint =
     min !== null
       ? `Enter an amount between ${formatLike(balanceText, min)} and your available balance.`
@@ -113,7 +120,7 @@ export function WithdrawScreen() {
         name="amount"
         type="number"
         keyboardType="decimal-pad"
-        label="Amount"
+        label={symbol ? `Amount (${symbol})` : "Amount"}
         placeholder="Enter amount"
         hint={hint}
       />

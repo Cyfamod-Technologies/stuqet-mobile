@@ -4,7 +4,13 @@ import { Badge } from "~/components/ui/badge";
 import { Text } from "~/components/ui/text";
 import { useThemeColors } from "~/lib/colors";
 import type { CommissionItem, PaymentItem, WithdrawalItem } from "../types";
-import { formatApiDate, formatLike, parseMoney, tidyMoney } from "../utils";
+import {
+  formatApiDate,
+  formatLike,
+  parseMoney,
+  tidyMoney,
+  tidyPaymentMethod,
+} from "../utils";
 
 const ROW = "min-h-16 flex-row items-center gap-3 px-4 py-2.5";
 
@@ -15,7 +21,7 @@ export function PaymentRow({ item }: { item: PaymentItem }) {
     <View
       className={ROW}
       accessible
-      accessibilityLabel={`${item.payment_method}, ${formatApiDate(item.payment_date)}, ${tidyMoney(item.amount)}`}
+      accessibilityLabel={`${tidyPaymentMethod(item.payment_method)}, ${formatApiDate(item.payment_date)}, ${tidyMoney(item.amount)}`}
     >
       <View className="h-10 w-10 items-center justify-center rounded-2xl bg-tint">
         <Ionicons
@@ -26,7 +32,7 @@ export function PaymentRow({ item }: { item: PaymentItem }) {
       </View>
       <View className="flex-1">
         <Text variant="heading" className="text-base" numberOfLines={1}>
-          {item.payment_method}
+          {tidyPaymentMethod(item.payment_method)}
         </Text>
         <Text variant="caption" className="text-[13px]">
           {formatApiDate(item.payment_date)}
