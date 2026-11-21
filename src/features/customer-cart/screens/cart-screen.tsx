@@ -154,8 +154,8 @@ function GroupCard({
   };
 
   const fillCoupon = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     setCode(
       demoValid ? customerSamples.coupon.valid : customerSamples.coupon.invalid,

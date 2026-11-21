@@ -45,8 +45,8 @@ function ReviewForm({
   const submit = useSubmitReview();
 
   const fill = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     setRating(4);
     setComment(customerSamples.review[sample % customerSamples.review.length]);

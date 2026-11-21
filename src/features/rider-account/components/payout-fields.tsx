@@ -45,8 +45,8 @@ export function PayoutFields({ form }: { form: PayoutForm }) {
   const checking = complete && resolution.isFetching;
 
   const fill = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     const item = customerSamples.payout[sample % customerSamples.payout.length];
     setSample((n) => n + 1);

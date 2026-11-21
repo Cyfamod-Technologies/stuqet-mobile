@@ -48,8 +48,8 @@ export function AddressFields({ form }: AddressFieldsProps) {
     (rows ?? []).map((row) => ({ label: row.name, value: String(row.id) }));
 
   const fill = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     const item =
       customerSamples.address[sample % customerSamples.address.length];

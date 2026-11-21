@@ -154,8 +154,8 @@ function TicketThread() {
           onFill={
             process.env.EXPO_PUBLIC_DEMO_MODE === "true"
               ? () => {
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const samples =
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     require("~/demo/samples") as typeof import("~/demo/samples");
                   setText(samples.replySample());
                 }

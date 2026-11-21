@@ -126,8 +126,8 @@ export function CreateAccountScreen() {
   };
 
   const fillSample = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     const sample =
       customerSamples.signup[sampleIndex % customerSamples.signup.length];
@@ -255,8 +255,8 @@ export function CreateAccountScreen() {
                 onFill={
                   process.env.EXPO_PUBLIC_DEMO_MODE === "true"
                     ? () => {
-                        // eslint-disable-next-line @typescript-eslint/no-require-imports
                         const demo =
+                          // eslint-disable-next-line @typescript-eslint/no-require-imports
                           require("~/demo/customer") as typeof import("~/demo/customer");
                         onCodeChange(demo.DEMO_CODE);
                       }

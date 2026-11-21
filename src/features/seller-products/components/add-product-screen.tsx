@@ -51,8 +51,8 @@ export function AddProductScreen() {
   const fill =
     process.env.EXPO_PUBLIC_DEMO_MODE === "true"
       ? () => {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const samples =
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
             require("~/demo/samples") as typeof import("~/demo/samples");
           reset(samples.productSample());
           if (uploads.photos.length === 0) void uploads.pickFromLibrary();

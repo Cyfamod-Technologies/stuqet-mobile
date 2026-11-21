@@ -87,8 +87,8 @@ export function VendorResetPasswordScreen() {
           onFill={
             process.env.EXPO_PUBLIC_DEMO_MODE === "true"
               ? () => {
-                  // eslint-disable-next-line @typescript-eslint/no-require-imports
                   const { authSample } =
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
                     require("~/demo/samples") as typeof import("~/demo/samples");
                   setValue("code", authSample.resetCode, {
                     shouldValidate: true,

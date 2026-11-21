@@ -16,8 +16,8 @@ interface DemoChip {
 // The vendor app lists seller accounts, the customer app customers and riders.
 function demoAccounts(): DemoChip[] {
   if (isCustomerApp) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { DEMO_ACCOUNTS } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     return DEMO_ACCOUNTS.map((a) => ({ ...a, key: a.persona }));
   }

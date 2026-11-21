@@ -28,8 +28,8 @@ export function RiderVehicleStepScreen() {
       : undefined;
 
   const fill = () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { customerSamples } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("~/demo/customer") as typeof import("~/demo/customer");
     app.patch({ vehicle: "motorbike", plate: customerSamples.plates[0] });
   };
