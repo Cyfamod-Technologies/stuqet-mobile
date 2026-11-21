@@ -10,6 +10,7 @@ import { useShopInfo } from "~/features/seller-shop/hooks";
 import { isSupportTicketsEnabled } from "~/features/seller-support/constants";
 import { useThemeColors } from "~/lib/colors";
 import { isThemeSwitchEnabled } from "~/lib/config/features";
+import { DemoTools } from "../components/demo-tools";
 import {
   ProfileCard,
   ProfileCardSkeleton,
@@ -143,6 +144,8 @@ export function MoreScreen() {
           last
         />
       </Card>
+
+      <DemoTools />
 
       <Card className="overflow-hidden p-0">
         <ListRow

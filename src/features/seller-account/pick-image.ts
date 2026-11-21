@@ -33,6 +33,18 @@ function extensionFor(mimeType: string): string {
   return "jpg";
 }
 
+/** Demo mode: the next bundled illustration for this kind of picture. */
+function demoImageFor(options: PickImageOptions): PickedImage | null {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { pickDemoPhotos } = require("~/demo") as typeof import("~/demo");
+  const purpose = options.square
+    ? "logo"
+    : options.aspect
+      ? "banner"
+      : "listing";
+  return toPickedImage(pickDemoPhotos(1, purpose)[0]);
+}
+
 function toPickedImage(
   asset: ImagePicker.ImagePickerAsset | undefined,
 ): PickedImage | null {
@@ -65,6 +77,9 @@ function pickerOptions({
 export async function pickImage(
   options: PickImageOptions = {},
 ): Promise<PickedImage | null> {
+  if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+    return demoImageFor(options);
+  }
   const result = await ImagePicker.launchImageLibraryAsync(
     pickerOptions(options),
   );
@@ -75,6 +90,9 @@ export async function pickImage(
 export async function takePhoto(
   options: PickImageOptions = {},
 ): Promise<PickedImage | null> {
+  if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+    return demoImageFor(options);
+  }
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) {
     notifyError({
@@ -88,6 +106,11 @@ export async function takePhoto(
 
 /** Opens the file browser for a JPG, PNG or PDF. Null when cancelled. */
 export async function pickDocument(): Promise<PickedFile | null> {
+  if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { pickDemoDocument } = require("~/demo") as typeof import("~/demo");
+    return pickDemoDocument();
+  }
   const result = await DocumentPicker.getDocumentAsync({
     type: ["image/jpeg", "image/png", "application/pdf"],
     copyToCacheDirectory: true,

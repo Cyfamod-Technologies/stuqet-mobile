@@ -13,9 +13,9 @@ import {
 } from "~/lib/utils/toast";
 import { SwitchRow } from "./switch-row";
 
-// One sample per toast variant; each press shows the next, so quick presses
-// also show the stack.
-const SAMPLE_TOASTS = [
+// One sample per toast variant, a long one, and a burst of four (the stack
+// keeps the newest three); each press shows the next.
+const SINGLE_TOASTS = [
   () => notifySuccess({ message: "Payout details saved" }),
   () =>
     notifyError({
@@ -35,6 +35,10 @@ const SAMPLE_TOASTS = [
       description:
         "Refresh the list to see the latest status. If it keeps happening, contact support and quote the order number shown on the order page.",
     }),
+];
+const SAMPLE_TOASTS = [
+  ...SINGLE_TOASTS,
+  () => SINGLE_TOASTS.slice(0, 4).forEach((show) => show()),
 ];
 
 // Demo mode only (More screen): throws the sample data away, forces the
