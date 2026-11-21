@@ -1,6 +1,7 @@
 import type { ComponentProps } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { ZoomIn, useReducedMotion } from "react-native-reanimated";
 import { SHADOWS, useThemeColors } from "~/lib/colors";
 import { cn } from "~/lib/utils/helpers";
 
@@ -34,6 +35,7 @@ export function StatusHero({
   tone = "brand",
 }: StatusHeroProps) {
   const colors = useThemeColors();
+  const reduced = useReducedMotion();
   const danger = tone === "danger";
   const coreOffset = (size - core) / 2;
   const haloOffset = halo ? (size - halo) / 2 : 0;
@@ -50,7 +52,7 @@ export function StatusHero({
         className={cn(
           "absolute inset-0 rounded-full border",
           danger
-            ? "border-destructive/30 bg-destructive-tint"
+            ? "border-destructive-border bg-destructive-tint"
             : "border-tint-border bg-tint",
         )}
       />
@@ -58,7 +60,7 @@ export function StatusHero({
         <View
           className={cn(
             "absolute rounded-full",
-            danger ? "bg-destructive/20" : "bg-tint-border",
+            danger ? "bg-destructive-border" : "bg-tint-border",
           )}
           style={{
             width: halo,
@@ -68,7 +70,10 @@ export function StatusHero({
           }}
         />
       ) : null}
-      <View
+      <Animated.View
+        entering={
+          reduced ? undefined : ZoomIn.delay(80).springify().damping(11)
+        }
         className={cn(
           "absolute items-center justify-center",
           danger ? "bg-destructive" : "bg-primary",
@@ -93,7 +98,7 @@ export function StatusHero({
               : colors["primary-foreground"]
           }
         />
-      </View>
+      </Animated.View>
       <View
         className={cn(
           "absolute rounded-full",
@@ -109,7 +114,7 @@ export function StatusHero({
       <View
         className={cn(
           "absolute rounded-full",
-          danger ? "bg-destructive/40" : "bg-tint-border",
+          danger ? "bg-destructive-border" : "bg-tint-border",
         )}
         style={{
           width: smallDot,

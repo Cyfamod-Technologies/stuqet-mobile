@@ -2,9 +2,10 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
+import { useCountUp } from "~/components/ui/motion";
 import { Text } from "~/components/ui/text";
 import { useThemeColors } from "~/lib/colors";
-import { tidyMoney } from "../utils";
+import { formatLike, parseMoney, tidyMoney } from "../utils";
 
 interface BalanceCardProps {
   /** Formatted `admin_to_pay`, undefined while loading. */
@@ -25,11 +26,18 @@ export function BalanceCard({
   onWithdraw,
 }: BalanceCardProps) {
   const colors = useThemeColors();
+  const target = balance ? parseMoney(balance) : 0;
+  const shown = useCountUp(Number.isFinite(target) ? target : 0);
+  // Count up, then show the API's own string once it lands.
+  const display =
+    balance && Math.abs(shown - target) >= 0.5
+      ? formatLike(balance, Math.round(shown))
+      : tidyMoney(balance ?? "");
 
   return (
     <View className="gap-3.5 rounded-3xl bg-foreground p-[18px]">
       <View className="gap-0.5">
-        <Text variant="label" className="text-background/70">
+        <Text variant="label" className="text-background opacity-70">
           Available balance
         </Text>
         {loading ? (
@@ -49,7 +57,7 @@ export function BalanceCard({
             className="text-[36px] leading-[42px] text-background"
             accessibilityLabel={`Available balance ${tidyMoney(balance)}`}
           >
-            {tidyMoney(balance)}
+            {display}
           </Text>
         )}
       </View>

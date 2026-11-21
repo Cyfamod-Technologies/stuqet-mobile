@@ -113,13 +113,15 @@ export function Button({
       disabled={inactive}
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={
+      style={({ pressed }) => [
         glows && !inactive
           ? SHADOWS.button
           : lifts && !inactive
             ? SHADOWS.field
-            : undefined
-      }
+            : undefined,
+        // A small press-down so taps feel physical.
+        pressed && !inactive ? { transform: [{ scale: 0.97 }] } : undefined,
+      ]}
       className={cn(
         buttonVariants({ variant, size }),
         inactive && "opacity-50",
