@@ -49,15 +49,6 @@ export function useOrderCount(deliveryStatus: DeliveryStatus) {
   });
 }
 
-/** The latest orders, for Home. */
-export function useRecentOrders(limit = 3) {
-  return useQuery({
-    queryKey: QUERY_KEYS.seller.orders.list({ recent: true }),
-    queryFn: async () => (await OrdersService.list(1)).orders.slice(0, limit),
-    meta: { suppressGlobalError: true },
-  });
-}
-
 export function useOrderDetail(id: number) {
   return useQuery({
     queryKey: QUERY_KEYS.seller.orders.detail(id),

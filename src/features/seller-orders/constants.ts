@@ -43,7 +43,7 @@ export const DELIVERY_FILTERS: { value: DeliveryStatus | ""; label: string }[] =
   ];
 
 export const PAYMENT_FILTERS: { value: PaymentStatus | ""; label: string }[] = [
-  { value: "", label: "All payments" },
+  { value: "", label: "All" },
   { value: "paid", label: "Paid" },
   { value: "unpaid", label: "Unpaid" },
 ];

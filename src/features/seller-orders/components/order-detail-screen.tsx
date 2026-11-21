@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Alert, Linking, Pressable, RefreshControl, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Linking, Pressable, RefreshControl, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { Screen } from "~/components/screen";
@@ -25,6 +25,7 @@ import {
   isOrderLocked,
   isPositiveMoney,
 } from "../utils";
+import { MarkPaidSheet } from "./mark-paid-sheet";
 import { OrderStepper } from "./order-stepper";
 import { DeliveryStatusBadge, PaymentStatusBadge } from "./status-badge";
 import { StatusSheet } from "./status-sheet";
@@ -173,6 +174,8 @@ export function OrderDetailScreen() {
   const updateStatus = useUpdateDeliveryStatus();
   const markPaid = useMarkOrderPaid();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [paidSheetOpen, setPaidSheetOpen] = useState(false);
+  const [paidToast, setPaidToast] = useState(false);
   const [pulling, setPulling] = useState(false);
 
   const order = query.data;
@@ -183,16 +186,22 @@ export function OrderDetailScreen() {
     updateStatus.mutate({ orderId, status });
   };
 
+  // OrderMarkPaid board: confirmation sheet, then the OrderPaid state (a dark
+  // "Order marked as paid" pill above the action bar that clears itself).
   const confirmPaid = () => {
-    Alert.alert(
-      "Mark as paid?",
-      "Confirm that you have received the payment for this order.",
-      [
-        { text: "Not yet", style: "cancel" },
-        { text: "Mark as paid", onPress: () => markPaid.mutate(orderId) },
-      ],
-    );
+    markPaid.mutate(orderId, {
+      onSuccess: () => {
+        setPaidSheetOpen(false);
+        setPaidToast(true);
+      },
+    });
   };
+
+  useEffect(() => {
+    if (!paidToast) return;
+    const timer = setTimeout(() => setPaidToast(false), 3000);
+    return () => clearTimeout(timer);
+  }, [paidToast]);
 
   const refresh = () => {
     setPulling(true);
@@ -272,8 +281,7 @@ export function OrderDetailScreen() {
               <Button
                 variant="outline"
                 size="sm"
-                loading={markPaid.isPending}
-                onPress={confirmPaid}
+                onPress={() => setPaidSheetOpen(true)}
               >
                 Mark as paid
               </Button>
@@ -312,6 +320,32 @@ export function OrderDetailScreen() {
         <ActionBar>
           <Button onPress={() => setSheetOpen(true)}>Update status</Button>
         </ActionBar>
+      ) : null}
+      {paidToast ? (
+        <View
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          pointerEvents="none"
+          className="absolute inset-x-5 bottom-28 h-12 flex-row items-center justify-center gap-2 rounded-full bg-foreground"
+        >
+          <Ionicons
+            name="checkmark-circle"
+            size={20}
+            color={colors.background}
+          />
+          <Text className="font-sans-bold text-[15px] text-background">
+            Order marked as paid
+          </Text>
+        </View>
+      ) : null}
+      {order ? (
+        <MarkPaidSheet
+          visible={paidSheetOpen}
+          onClose={() => setPaidSheetOpen(false)}
+          order={order}
+          loading={markPaid.isPending}
+          onConfirm={confirmPaid}
+        />
       ) : null}
       {order ? (
         <StatusSheet

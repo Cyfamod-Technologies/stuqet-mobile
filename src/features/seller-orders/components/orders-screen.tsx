@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -16,6 +22,7 @@ import { useOrders } from "../hooks";
 import type { DeliveryStatus, OrderSummary, PaymentStatus } from "../types";
 import { FilterChips } from "./filter-chips";
 import { OrderCard, OrderCardSkeleton } from "./order-card";
+import { OrderSearchField } from "./order-search-field";
 import { PaymentFilterSheet } from "./payment-filter-sheet";
 
 function parseStatusParam(value: string | undefined): DeliveryStatus | "" {
@@ -24,8 +31,21 @@ function parseStatusParam(value: string | undefined): DeliveryStatus | "" {
 }
 
 // Orders tab: status chips map to the API's delivery_status filter, the filter
-// button to payment_status. Search and export are left out: the API has
-// neither (see the vendor API audit).
+// sheet to payment_status. The API has no search, so the search box filters the
+// loaded pages client-side (by code or total) and keeps loading pages while a
+// search is active, up to SEARCH_MAX_PAGES.
+const SEARCH_MAX_PAGES = 20;
+
+function matchesSearch(order: OrderSummary, term: string): boolean {
+  const needle = term.trim().replace(/^#/, "").toLowerCase();
+  if (!needle) return true;
+  if (order.code.toLowerCase().includes(needle)) return true;
+  const digits = needle.replace(/[^0-9.]/g, "");
+  return (
+    digits.length > 0 && order.total.replace(/[^0-9.]/g, "").includes(digits)
+  );
+}
+
 export function OrdersScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -37,6 +57,7 @@ export function OrdersScreen() {
     parseStatusParam(params.status),
   );
   const [payment, setPayment] = useState<PaymentStatus | "">("");
+  const [search, setSearch] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
 
@@ -57,10 +78,24 @@ export function OrdersScreen() {
   });
   const { fetchNextPage, hasNextPage, isFetchingNextPage, refetch } = query;
 
-  const orders = useMemo(
-    () => query.data?.pages.flatMap((page) => page.orders) ?? [],
-    [query.data],
-  );
+  const searching = search.trim().length > 0;
+  const pageCount = query.data?.pages.length ?? 0;
+  const orders = useMemo(() => {
+    const all = query.data?.pages.flatMap((page) => page.orders) ?? [];
+    return searching ? all.filter((o) => matchesSearch(o, search)) : all;
+  }, [query.data, search, searching]);
+
+  // While searching, pull in the remaining pages so matches are not missed.
+  useEffect(() => {
+    if (
+      searching &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      pageCount < SEARCH_MAX_PAGES
+    ) {
+      fetchNextPage();
+    }
+  }, [searching, hasNextPage, isFetchingNextPage, pageCount, fetchNextPage]);
 
   const openOrder = useCallback(
     (order: OrderSummary) =>
@@ -82,17 +117,16 @@ export function OrdersScreen() {
 
   const header = (
     <View className="gap-4 pb-2">
-      <ScreenHeader
-        title="Orders"
-        right={
-          <RoundIconButton
-            icon="options-outline"
-            label="Filter by payment status"
-            dot={payment !== ""}
-            onPress={() => setSheetOpen(true)}
-          />
-        }
-      />
+      <ScreenHeader title="Orders" />
+      <View className="flex-row items-center gap-2.5">
+        <OrderSearchField value={search} onChangeText={setSearch} />
+        <RoundIconButton
+          icon="options-outline"
+          label="Filters"
+          dot={payment !== ""}
+          onPress={() => setSheetOpen(true)}
+        />
+      </View>
       <FilterChips
         accessibilityLabel="Filter orders by delivery status"
         options={DELIVERY_FILTERS}
@@ -122,20 +156,21 @@ export function OrdersScreen() {
       />
     );
   } else {
-    const filtered = delivery !== "" || payment !== "";
+    const filtered = delivery !== "" || payment !== "" || searching;
     empty = (
       <EmptyState
         icon="receipt-outline"
         title={filtered ? "No matching orders" : "No orders yet"}
         message={
           filtered
-            ? "Try another status or clear the payment filter."
+            ? "Try another status or search, or clear the filters."
             : "New orders from your customers will show up here."
         }
         actionLabel={filtered ? "Clear filters" : undefined}
         onAction={() => {
           setDelivery("");
           setPayment("");
+          setSearch("");
         }}
       />
     );
@@ -152,7 +187,8 @@ export function OrdersScreen() {
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={
-          isFetchingNextPage ? (
+          isFetchingNextPage ||
+          (searching && hasNextPage && pageCount < SEARCH_MAX_PAGES) ? (
             <View className="py-4">
               <ActivityIndicator color={colors["brand-text"]} />
             </View>
@@ -180,7 +216,7 @@ export function OrdersScreen() {
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
         value={payment}
-        onChange={setPayment}
+        onApply={setPayment}
       />
     </View>
   );
