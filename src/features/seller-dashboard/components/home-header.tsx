@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Image, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { ShopLogo } from "~/components/shop-logo";
 import { RoundIconButton } from "~/components/ui/round-icon-button";
 import { Text } from "~/components/ui/text";
 import { useThemeColors } from "~/lib/colors";
-import { getInitials, withApiBase } from "~/lib/utils/helpers";
+import { withApiBase } from "~/lib/utils/helpers";
 import { useUnreadNotificationCount } from "~/features/seller-notifications/hooks";
 import type { ShopInfo } from "~/features/seller-shop/types";
 import { greeting } from "../format";
@@ -16,25 +16,10 @@ export function HomeHeader({ shop }: { shop: ShopInfo }) {
   const router = useRouter();
   const colors = useThemeColors();
   const unread = useUnreadNotificationCount();
-  const [logoFailed, setLogoFailed] = useState(false);
-  const logo = withApiBase(shop.logo);
 
   return (
     <View className="flex-row items-center gap-3">
-      <View className="h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-tint-border bg-tint">
-        {logo && !logoFailed ? (
-          <Image
-            source={{ uri: logo }}
-            accessibilityIgnoresInvertColors
-            style={{ width: 48, height: 48 }}
-            onError={() => setLogoFailed(true)}
-          />
-        ) : (
-          <Text className="font-sans-extrabold text-lg text-brand-text">
-            {getInitials(shop.name)}
-          </Text>
-        )}
-      </View>
+      <ShopLogo uri={withApiBase(shop.logo)} name={shop.name} size={56} />
       <View className="flex-1">
         <Text variant="caption" className="font-sans-medium text-sm">
           {greeting()}

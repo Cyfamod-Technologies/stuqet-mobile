@@ -1,10 +1,5 @@
 import { axiosPrivate } from "~/lib/config/axios";
-import type {
-  RawSalesStat,
-  RawTopProduct,
-  SalesDay,
-  TopProduct,
-} from "./types";
+import type { RawSalesStat, SalesDay } from "./types";
 
 const WEEKDAY_INITIALS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -32,20 +27,6 @@ const DashboardService = {
         };
       })
       .reverse();
-  },
-
-  /** GET /seller/dashboard/top-12-product — best sellers by units sold. */
-  getTopProducts: async (): Promise<TopProduct[]> => {
-    const { data } = await axiosPrivate.get<{ data: RawTopProduct[] }>(
-      "/seller/dashboard/top-12-product",
-    );
-    return (data.data ?? []).map((p) => ({
-      id: p.id,
-      name: p.name,
-      thumbnail: p.thumbnail_image || null,
-      sales: p.sales,
-      price: p.base_discounted_price || p.base_price,
-    }));
   },
 };
 

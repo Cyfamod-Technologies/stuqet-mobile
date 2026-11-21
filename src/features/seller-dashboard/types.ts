@@ -9,15 +9,6 @@ export interface SalesDay {
   isToday: boolean;
 }
 
-/** One row of GET /seller/dashboard/top-12-product (ProductCollection). */
-export interface TopProduct {
-  id: number;
-  name: string;
-  thumbnail: string | null;
-  sales: number;
-  price: number;
-}
-
 export interface RawSalesDay {
   date: string;
   total: number | string | null;
@@ -28,12 +19,3 @@ export interface RawSalesDay {
  * serialises as an object; a plain array is accepted too.
  */
 export type RawSalesStat = Record<string, RawSalesDay> | RawSalesDay[];
-
-export interface RawTopProduct {
-  id: number;
-  name: string;
-  thumbnail_image: string | null;
-  sales: number;
-  base_price: number;
-  base_discounted_price: number;
-}

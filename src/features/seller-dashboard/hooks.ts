@@ -9,11 +9,3 @@ export function useSalesStat() {
     meta: { suppressGlobalError: true },
   });
 }
-
-export function useTopProducts() {
-  return useQuery({
-    queryKey: [...QUERY_KEYS.seller.dashboard, "top-products"] as const,
-    queryFn: DashboardService.getTopProducts,
-    meta: { suppressGlobalError: true },
-  });
-}

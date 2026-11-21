@@ -7,18 +7,17 @@ import { AttentionList } from "./attention-list";
 import { CounterTiles } from "./counter-tiles";
 import { HomeHeader } from "./home-header";
 import { QuickActions } from "./quick-actions";
-import { RecentOrders } from "./recent-orders";
 import { SalesHero } from "./sales-hero";
 import { StatStrip } from "./stat-strip";
 import { SummaryCard } from "./summary-card";
-import { TopProducts } from "./top-products";
 
 interface LayoutProps {
   shop: ShopInfo;
 }
 
-// Home for shops that sell products: sales summary, order counters, what needs
-// attention, recent orders and best sellers.
+// Home for shops that sell products: sales summary, order counters and what
+// needs attention (Home board). The earlier "Recent orders" and "Top sellers"
+// cards are not in the design, so they are gone.
 export function ProductHome({ shop }: LayoutProps) {
   return (
     <>
@@ -26,14 +25,13 @@ export function ProductHome({ shop }: LayoutProps) {
       <SalesHero allTimeSales={shop.sales} />
       <CounterTiles delivered={shop.orders} />
       <AttentionList shop={shop} />
-      <RecentOrders />
-      <TopProducts />
     </>
   );
 }
 
-// Home for food shops. The menu-availability counts (always available /
-// scheduled / sold out) have no endpoint yet, so that card is left out.
+// Home for food shops (HomeFood board). The menu-availability counts (always
+// available / scheduled / sold out) and "Live menu" have no endpoint yet, so
+// the card is left out and "Delivered" stands in for "Live menu".
 export function FoodHome({ shop }: LayoutProps) {
   const router = useRouter();
   const pending = useOrderCount("pending");
@@ -53,9 +51,6 @@ export function FoodHome({ shop }: LayoutProps) {
           { label: "Delivered", value: shop.orders },
         ]}
       />
-      <AttentionList shop={shop} />
-      <RecentOrders />
-      <TopProducts title="Top dishes" />
       <SectionHeader title="Quick actions" />
       <QuickActions
         actions={[
@@ -117,7 +112,6 @@ export function ServiceHome({ shop }: LayoutProps) {
             : []),
         ]}
       />
-      <AttentionList shop={shop} />
       <SectionHeader title="Quick actions" />
       <QuickActions
         actions={[
