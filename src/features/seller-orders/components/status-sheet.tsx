@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, View } from "react-native";
 import { BottomSheet } from "~/components/ui/bottom-sheet";
 import { Button } from "~/components/ui/button";
@@ -23,11 +23,25 @@ export function StatusSheet({
   current,
   onSave,
 }: StatusSheetProps) {
-  const [selected, setSelected] = useState<DeliveryStatus>(current);
+  return (
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Update delivery status"
+    >
+      {/* Mounted only while the modal is open, so the selection restarts at
+          the order's current status each time. */}
+      <StatusSheetBody current={current} onClose={onClose} onSave={onSave} />
+    </BottomSheet>
+  );
+}
 
-  useEffect(() => {
-    if (visible) setSelected(current);
-  }, [visible, current]);
+function StatusSheetBody({
+  current,
+  onClose,
+  onSave,
+}: Omit<StatusSheetProps, "visible">) {
+  const [selected, setSelected] = useState<DeliveryStatus>(current);
 
   const save = () => {
     if (selected === current) {
@@ -35,18 +49,15 @@ export function StatusSheet({
       return;
     }
     if (selected === "delivered" || selected === "cancelled") {
-      const action =
-        selected === "cancelled"
-          ? "Cancel this order?"
-          : "Mark this order as delivered?";
+      const cancelling = selected === "cancelled";
       Alert.alert(
-        action,
+        cancelling ? "Cancel this order?" : "Mark this order as delivered?",
         `${DELIVERY_LABELS[selected]} orders are locked and cannot be changed again.`,
         [
           { text: "Go back", style: "cancel" },
           {
-            text: selected === "cancelled" ? "Cancel order" : "Mark delivered",
-            style: selected === "cancelled" ? "destructive" : "default",
+            text: cancelling ? "Cancel order" : "Mark delivered",
+            style: cancelling ? "destructive" : "default",
             onPress: () => onSave(selected),
           },
         ],
@@ -57,11 +68,7 @@ export function StatusSheet({
   };
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      title="Update delivery status"
-    >
+    <>
       <View accessibilityRole="radiogroup">
         {STATUS_OPTIONS.map((option, index) => (
           <OptionRow
@@ -77,6 +84,6 @@ export function StatusSheet({
         Delivered and cancelled orders are locked and cannot be changed again.
       </Text>
       <Button onPress={save}>Save status</Button>
-    </BottomSheet>
+    </>
   );
 }

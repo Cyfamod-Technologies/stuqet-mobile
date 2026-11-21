@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
+import { useCallback, useMemo, useState, type ReactElement } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "~/lib/colors";
@@ -35,11 +40,16 @@ export function OrdersScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pulling, setPulling] = useState(false);
 
-  useEffect(() => {
+  // Re-apply the filter whenever Home links here again (adjusted during render
+  // rather than in an effect).
+  const paramKey = `${params.status ?? ""}|${params.t ?? ""}`;
+  const [appliedKey, setAppliedKey] = useState(paramKey);
+  if (appliedKey !== paramKey) {
+    setAppliedKey(paramKey);
     if (params.status !== undefined) {
       setDelivery(parseStatusParam(params.status));
     }
-  }, [params.status, params.t]);
+  }
 
   const query = useOrders({
     deliveryStatus: delivery || undefined,
@@ -92,7 +102,7 @@ export function OrdersScreen() {
     </View>
   );
 
-  let empty = null;
+  let empty: ReactElement;
   if (query.isPending) {
     empty = (
       <View className="gap-4">
@@ -136,7 +146,9 @@ export function OrdersScreen() {
       <FlatList
         data={orders}
         keyExtractor={(order) => String(order.id)}
-        renderItem={({ item }) => <OrderCard order={item} onPress={openOrder} />}
+        renderItem={({ item }) => (
+          <OrderCard order={item} onPress={openOrder} />
+        )}
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
         ListFooterComponent={
@@ -144,7 +156,7 @@ export function OrdersScreen() {
             <View className="py-4">
               <ActivityIndicator color={colors["brand-text"]} />
             </View>
-          ) : null
+          ) : undefined
         }
         contentContainerStyle={{
           paddingTop: insets.top + 12,

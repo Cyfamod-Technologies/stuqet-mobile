@@ -13,7 +13,11 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
 import { useThemeColors } from "~/lib/colors";
 import { notifyError } from "~/lib/utils/toast";
-import { useMarkOrderPaid, useOrderDetail, useUpdateDeliveryStatus } from "../hooks";
+import {
+  useMarkOrderPaid,
+  useOrderDetail,
+  useUpdateDeliveryStatus,
+} from "../hooks";
 import type { DeliveryStatus, OrderDetail, OrderItem } from "../types";
 import {
   canMarkAsPaid,
@@ -211,7 +215,10 @@ export function OrderDetailScreen() {
       />
     );
   } else {
-    const showMarkPaid = canMarkAsPaid(order.paymentStatus, order.paymentMethod);
+    const showMarkPaid = canMarkAsPaid(
+      order.paymentStatus,
+      order.paymentMethod,
+    );
     body = (
       <>
         <Text
