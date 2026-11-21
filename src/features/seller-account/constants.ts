@@ -1,3 +1,4 @@
+import { isDemoMode } from "~/demo/flag";
 import type { VerificationFieldType } from "./types";
 
 export const VERIFICATION_FIELD_TYPES: readonly VerificationFieldType[] = [
@@ -15,10 +16,11 @@ export const VERIFICATION_FIELD_TYPES: readonly VerificationFieldType[] = [
  * TODO(backend): needs `POST /seller/bank/resolve` (see api.ts). It is off by
  * default so nothing calls the missing endpoint; set
  * `EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE="true"` once it ships. While it is off,
- * the Account name stays an editable field.
+ * the Account name stays an editable field. Demo mode turns it on with a fake
+ * bank lookup (account number 0000000000 shows "not found").
  */
 export const isAccountResolveEnabled =
-  process.env.EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE === "true";
+  process.env.EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE === "true" || isDemoMode;
 
 /** A Nigerian NUBAN account number has 10 digits. */
 export const ACCOUNT_NUMBER_LENGTH = 10;
