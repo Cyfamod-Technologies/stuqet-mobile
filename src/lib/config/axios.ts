@@ -1,5 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
-import axiosRetry from "axios-retry";
+import axiosRetry, { exponentialDelay, isNetworkError } from "axios-retry";
 import { getToken, deleteToken } from "~/lib/secure-storage";
 import { router } from "expo-router";
 import { logger } from "~/lib/utils/logger";
@@ -14,6 +14,8 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 const SYSTEM_KEY = process.env.EXPO_PUBLIC_SYSTEM_KEY;
 
 function createAxiosInstance() {
+  // `axios.create` is the documented API; the named `create` export is not.
+  // eslint-disable-next-line import/no-named-as-default-member
   return axios.create({
     baseURL: BASE_URL,
     timeout: 45000,
@@ -148,22 +150,22 @@ if (process.env.EXPO_PUBLIC_ROUTE !== "vendor") {
 
 axiosRetry(axiosPrivate, {
   retries: 2,
-  retryDelay: axiosRetry.exponentialDelay,
+  retryDelay: exponentialDelay,
   shouldResetTimeout: true,
   retryCondition: (error) => {
     const status = error.response?.status ?? 0;
     if (status === 401 || (status >= 400 && status < 500)) return false;
-    return axiosRetry.isNetworkError(error) || (status >= 500 && status <= 599);
+    return isNetworkError(error) || (status >= 500 && status <= 599);
   },
 });
 
 axiosRetry(axiosInstance, {
   retries: 2,
-  retryDelay: axiosRetry.exponentialDelay,
+  retryDelay: exponentialDelay,
   shouldResetTimeout: true,
   retryCondition: (error) => {
     const status = error.response?.status ?? 0;
-    return axiosRetry.isNetworkError(error) || (status >= 500 && status <= 599);
+    return isNetworkError(error) || (status >= 500 && status <= 599);
   },
 });
 

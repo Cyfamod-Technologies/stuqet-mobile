@@ -9,8 +9,7 @@ import {
   PayoutFields,
   usePayoutForm,
 } from "~/features/rider-account/components/payout-fields";
-import { useApplyAsRider } from "~/features/rider-account/hooks";
-import { useBanks } from "~/features/rider-account/hooks";
+import { useApplyAsRider, useBanks } from "~/features/rider-account/hooks";
 import { useRiderApplication } from "../store";
 
 // Rider 4 · Payout: bank, account number and the confirmed account name, then

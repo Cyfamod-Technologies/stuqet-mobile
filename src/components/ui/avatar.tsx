@@ -1,6 +1,5 @@
 import { View, Text, Image } from "react-native";
-import { cn } from "~/lib/utils/helpers";
-import { getInitials } from "~/lib/utils/helpers";
+import { cn, getInitials } from "~/lib/utils/helpers";
 
 type AvatarSize = "sm" | "default" | "lg";
 

@@ -8,7 +8,10 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { DividerLabel } from "~/components/ui/divider-label";
 import { Notice } from "~/components/ui/notice";
 import { Text } from "~/components/ui/text";
-import { isBiometricAvailable } from "~/features/auth/biometrics";
+import {
+  isBiometricAvailable,
+  unlockStoredSession,
+} from "~/features/auth/biometrics";
 import { AuthField } from "~/features/auth/components/auth-field";
 import { AuthHeading } from "~/features/auth/components/auth-heading";
 import { AuthPage } from "~/features/auth/components/auth-page";
@@ -24,7 +27,6 @@ import {
   useCustomerLogin,
 } from "~/features/auth/customer-hooks";
 import { loginErrorCopy } from "~/features/auth/errors";
-import { unlockStoredSession } from "~/features/auth/biometrics";
 import {
   vendorLoginSchema,
   type VendorLoginFormValues,

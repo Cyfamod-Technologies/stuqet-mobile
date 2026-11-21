@@ -1,8 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { View } from "react-native";
-import { router } from "expo-router";
-import { useFocusEffect } from "expo-router";
-import { useCallback } from "react";
+import { router, useFocusEffect } from "expo-router";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { StatusHero } from "~/features/auth/components/status-hero";

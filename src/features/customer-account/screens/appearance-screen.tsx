@@ -1,8 +1,7 @@
-import { ScrollView, View } from "react-native";
+import { ScrollView, View, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackButton } from "~/components/ui/back-button";
 import { Card } from "~/components/ui/card";
-import { Pressable } from "react-native";
 import { Text } from "~/components/ui/text";
 import { isThemeSwitchEnabled } from "~/lib/config/features";
 import { useThemeStore, type ThemePreference } from "~/lib/stores/theme-store";

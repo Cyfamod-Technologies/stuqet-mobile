@@ -2,6 +2,8 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
+  // Tailwind loads this file in Node, where `require` is the supported way to pull in a preset.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   presets: [require("nativewind/preset")],
   theme: {
     extend: {

@@ -1,8 +1,7 @@
-import { minutesAgo } from "../format";
+import { minutesAgo, naira } from "../format";
 import type { DemoNotification, DemoOrder } from "../types";
 import { customerById } from "./customers";
 import { orderTotal } from "./orders";
-import { naira } from "../format";
 
 /** Notifications derived from the shop's newest orders plus fixed payout,
  * product and verification updates. */

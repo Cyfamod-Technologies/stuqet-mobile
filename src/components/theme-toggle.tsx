@@ -25,9 +25,6 @@ export function ThemeToggle() {
     outputRange: [2, 18],
   });
 
-  const trackColor = isDark
-    ? darkColors["accent-foreground"]
-    : lightColors.secondary;
   const iconColor = isDark ? darkColors.foreground : lightColors.foreground;
   const dimColor = isDark
     ? darkColors["muted-foreground"]

@@ -1,7 +1,6 @@
 import { Alert, ScrollView, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionBar } from "~/components/ui/action-bar";
 import { BackButton } from "~/components/ui/back-button";
 import { Button } from "~/components/ui/button";
 import { Text } from "~/components/ui/text";
