@@ -18,7 +18,9 @@ const DELIVERY_STATUSES: DeliveryStatus[] = [
 ];
 
 /** The list endpoint sends "picked up"; the detail endpoint "picked_up". */
-export function toDeliveryStatus(raw: string | null | undefined): DeliveryStatus {
+export function toDeliveryStatus(
+  raw: string | null | undefined,
+): DeliveryStatus {
   const normalised = (raw ?? "").trim().toLowerCase().replace(/\s+/g, "_");
   return DELIVERY_STATUSES.find((s) => s === normalised) ?? "pending";
 }

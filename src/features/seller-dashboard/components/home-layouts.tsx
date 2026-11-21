@@ -112,7 +112,9 @@ export function ServiceHome({ shop }: LayoutProps) {
         rows={[
           { label: "Active services", value: shop.products },
           { label: "Shop name", value: shop.name },
-          ...(shop.phone ? [{ label: "Contact number", value: shop.phone }] : []),
+          ...(shop.phone
+            ? [{ label: "Contact number", value: shop.phone }]
+            : []),
         ]}
       />
       <AttentionList shop={shop} />

@@ -23,9 +23,10 @@ const MONTHS = [
 
 /** Parses the API's "November 21 2026, 3:04 pm"; Hermes can't parse it natively. */
 export function parseNotificationDate(raw: string): Date | null {
-  const match = /^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4}),\s*(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec(
-    raw.trim(),
-  );
+  const match =
+    /^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4}),\s*(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec(
+      raw.trim(),
+    );
   if (!match) return null;
   const month = MONTHS.indexOf(match[1].toLowerCase());
   if (month === -1) return null;
@@ -130,7 +131,8 @@ export function toNotification(
     return {
       ...base,
       title: "Payout update",
-      message: message || (status ? `Your payout is ${status}` : "Payout update"),
+      message:
+        message || (status ? `Your payout is ${status}` : "Payout update"),
       icon: "wallet-outline",
       orderId: null,
     };

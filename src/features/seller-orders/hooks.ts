@@ -128,7 +128,9 @@ export function useUpdateDeliveryStatus() {
     meta: { suppressGlobalError: true },
 
     onMutate: async ({ orderId, status }) => {
-      await queryClient.cancelQueries({ queryKey: QUERY_KEYS.seller.orders.all });
+      await queryClient.cancelQueries({
+        queryKey: QUERY_KEYS.seller.orders.all,
+      });
 
       const snapshot: [QueryKey, OrdersCache | undefined][] =
         queryClient.getQueriesData<OrdersCache>({
@@ -171,7 +173,9 @@ export function useMarkOrderPaid() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.seller.orders.all });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.seller.shop });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.seller.dashboard });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.seller.money.payments });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.seller.money.payments,
+      });
     },
   });
 }

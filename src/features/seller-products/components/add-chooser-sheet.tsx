@@ -70,10 +70,16 @@ export function AddChooserSheet({
               />
             </View>
             <View className="flex-1 gap-0.5">
-              <Text variant="heading" className="font-sans-extrabold text-[19px]">
+              <Text
+                variant="heading"
+                className="font-sans-extrabold text-[19px]"
+              >
                 {choice.title}
               </Text>
-              <Text tone="muted" className="text-sm font-sans-medium leading-[19px]">
+              <Text
+                tone="muted"
+                className="font-sans-medium text-sm leading-[19px]"
+              >
                 {choice.description}
               </Text>
               <Text className="font-sans-bold text-xs text-brand-text">

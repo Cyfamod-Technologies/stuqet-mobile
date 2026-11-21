@@ -29,8 +29,7 @@ export function NotificationsScreen() {
 
   const all = query.data;
   const items = useMemo(
-    () =>
-      (all ?? []).filter((n) => filter === "all" || n.category === filter),
+    () => (all ?? []).filter((n) => filter === "all" || n.category === filter),
     [all, filter],
   );
 

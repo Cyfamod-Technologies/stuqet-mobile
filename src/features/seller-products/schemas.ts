@@ -9,7 +9,8 @@ import {
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /** Strips thousands separators typed by the user ("2,500" -> "2500"). */
-export const normaliseNumber = (value: string) => value.replace(/,/g, "").trim();
+export const normaliseNumber = (value: string) =>
+  value.replace(/,/g, "").trim();
 
 const nameField = (noun: string) =>
   z

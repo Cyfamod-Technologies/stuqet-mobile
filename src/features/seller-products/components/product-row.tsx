@@ -66,7 +66,10 @@ function ProductRowBase({ product, onTogglePublished, busy }: ProductRowProps) {
           ) : null}
         </View>
         <View className="flex-row items-center gap-2">
-          <Text className="shrink font-sans-extrabold text-base" numberOfLines={1}>
+          <Text
+            className="shrink font-sans-extrabold text-base"
+            numberOfLines={1}
+          >
             {product.price}
           </Text>
           <Badge label={badge.label} variant={badge.tone} />

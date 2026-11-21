@@ -80,8 +80,16 @@ function OrderCountTile({
 export function CounterTiles({ delivered }: { delivered: number }) {
   return (
     <View className="flex-row gap-2.5">
-      <OrderCountTile status="pending" label="New orders" icon="receipt-outline" />
-      <OrderCountTile status="on_the_way" label="On delivery" icon="bicycle-outline" />
+      <OrderCountTile
+        status="pending"
+        label="New orders"
+        icon="receipt-outline"
+      />
+      <OrderCountTile
+        status="on_the_way"
+        label="On delivery"
+        icon="bicycle-outline"
+      />
       <Tile
         status="delivered"
         label="Delivered"

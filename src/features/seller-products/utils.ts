@@ -171,7 +171,9 @@ export function catalogueSummary(
 /** Formats typing as 24-hour "HH:mm" ("1230" -> "12:30"). */
 export function formatTimeInput(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 4);
-  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+  return digits.length > 2
+    ? `${digits.slice(0, 2)}:${digits.slice(2)}`
+    : digits;
 }
 
 // ---------------------------------------------------------------------------

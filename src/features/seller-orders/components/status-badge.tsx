@@ -15,7 +15,10 @@ const DELIVERY_VARIANTS: Record<DeliveryStatus, BadgeVariant> = {
 
 export function DeliveryStatusBadge({ status }: { status: DeliveryStatus }) {
   return (
-    <Badge label={DELIVERY_LABELS[status]} variant={DELIVERY_VARIANTS[status]} />
+    <Badge
+      label={DELIVERY_LABELS[status]}
+      variant={DELIVERY_VARIANTS[status]}
+    />
   );
 }
 

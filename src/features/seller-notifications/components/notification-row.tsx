@@ -60,10 +60,7 @@ export function NotificationRow({
         </Text>
       </View>
       {time ? (
-        <Text
-          variant="caption"
-          className="mt-1 self-start font-sans-semibold"
-        >
+        <Text variant="caption" className="mt-1 self-start font-sans-semibold">
           {time}
         </Text>
       ) : null}

@@ -59,9 +59,7 @@ export function SalesHero({ allTimeSales }: SalesHeroProps) {
                 )}
                 style={{
                   height:
-                    max > 0
-                      ? Math.max(6, (day.total / max) * CHART_HEIGHT)
-                      : 6,
+                    max > 0 ? Math.max(6, (day.total / max) * CHART_HEIGHT) : 6,
                 }}
               />
               <Text className="font-sans-semibold text-[11px] leading-3 text-background opacity-70">

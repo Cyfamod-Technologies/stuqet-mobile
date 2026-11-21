@@ -36,7 +36,7 @@ export function HomeHeader({ shop }: { shop: ShopInfo }) {
         )}
       </View>
       <View className="flex-1">
-        <Text variant="caption" className="text-sm font-sans-medium">
+        <Text variant="caption" className="font-sans-medium text-sm">
           {greeting()}
         </Text>
         <View className="flex-row items-center gap-1.5">

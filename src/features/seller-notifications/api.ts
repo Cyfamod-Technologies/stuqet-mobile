@@ -20,9 +20,8 @@ const NotificationsService = {
       unwrapNotifications(unread.data.data).map((n) => n.id),
     );
 
-    const all = await axiosPrivate.get<RawNotificationList>(
-      "/all-notification",
-    );
+    const all =
+      await axiosPrivate.get<RawNotificationList>("/all-notification");
     return unwrapNotifications(all.data.data).map((raw) =>
       toNotification(raw, unreadIds),
     );

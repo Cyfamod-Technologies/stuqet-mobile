@@ -74,10 +74,7 @@ export function CategoryField({
         )}
       >
         <Text
-          className={cn(
-            "flex-1 font-sans-medium",
-            !selected && "text-hint",
-          )}
+          className={cn("flex-1 font-sans-medium", !selected && "text-hint")}
           numberOfLines={1}
         >
           {isError

@@ -48,9 +48,7 @@ export function Chip({
         shape === "pill" ? "rounded-full px-4" : "rounded-[14px] px-0",
         large || shape === "square" ? "h-11" : "h-10",
         grow && "flex-1",
-        selected
-          ? "border-tint-border bg-tint"
-          : "border-border bg-field",
+        selected ? "border-tint-border bg-tint" : "border-border bg-field",
       )}
     >
       {check && selected ? (

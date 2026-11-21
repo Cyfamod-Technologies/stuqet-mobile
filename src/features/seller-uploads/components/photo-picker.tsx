@@ -59,9 +59,13 @@ function PhotoTile({
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel={`Retry uploading photo ${index + 1}`}
-          className={`${TILE} absolute items-center justify-center gap-0.5 border border-destructive bg-destructive-tint/95`}
+          className={`${TILE} bg-destructive-tint/95 absolute items-center justify-center gap-0.5 border border-destructive`}
         >
-          <Ionicons name="refresh" size={20} color={colors["destructive-text"]} />
+          <Ionicons
+            name="refresh"
+            size={20}
+            color={colors["destructive-text"]}
+          />
           <Text className="font-sans-bold text-xs text-destructive-text">
             Retry
           </Text>
@@ -121,9 +125,13 @@ export function PhotoPicker({
             accessibilityRole="button"
             accessibilityLabel="Add photo"
             accessibilityHint={`Choose up to ${max} photos from your library`}
-            className={`${TILE} items-center justify-center gap-0.5 border-[1.5px] border-dashed border-primary/50 bg-tint active:opacity-80`}
+            className={`${TILE} border-primary/50 items-center justify-center gap-0.5 border-[1.5px] border-dashed bg-tint active:opacity-80`}
           >
-            <Ionicons name="camera-outline" size={24} color={colors["brand-text"]} />
+            <Ionicons
+              name="camera-outline"
+              size={24}
+              color={colors["brand-text"]}
+            />
             <Text className="font-sans-bold text-xs text-brand-text">
               Add photo
             </Text>
