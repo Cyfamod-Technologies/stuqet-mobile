@@ -41,7 +41,9 @@
     "aab:vendor": "node scripts/build-android.mjs vendor aab",
     "aab:all": "npm run aab:customer && npm run aab:vendor",
     "aab:customer:eas-local": "node scripts/build-local-eas.mjs customer",
-    "aab:vendor:eas-local": "node scripts/build-local-eas.mjs vendor"
+    "aab:vendor:eas-local": "node scripts/build-local-eas.mjs vendor",
+    "typegen:vendor": "node scripts/gen-typed-routes.mjs vendor",
+    "typegen:customer": "node scripts/gen-typed-routes.mjs customer"
   },
   "dependencies": {
     "@expo-google-fonts/urbanist": "^0.4.2",
@@ -62,10 +64,12 @@
     "expo-build-properties": "~58.0.12",
     "expo-constants": "~58.0.16",
     "expo-dev-client": "~58.0.21",
+    "expo-document-picker": "~58.0.5",
     "expo-font": "~58.0.12",
     "expo-image-picker": "~58.0.10",
     "expo-linear-gradient": "~58.0.4",
     "expo-linking": "~58.0.17",
+    "expo-local-authentication": "~58.0.3",
     "expo-router": "~58.0.32",
     "expo-secure-store": "~58.0.3",
     "expo-splash-screen": "~58.0.14",

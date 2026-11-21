@@ -14,6 +14,14 @@ declare namespace NodeJS {
     readonly EXPO_PUBLIC_SENTRY_DSN_VENDOR?: string;
     readonly EXPO_PUBLIC_ENABLE_THEME_SWITCH?: string;
     readonly EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN?: string;
+    readonly EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS?: string;
+    readonly EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE?: string;
+    /** Vendor app: web page where a seller registers a shop (the backend has
+     * no seller registration API, so "Create a shop" opens this in the
+     * browser). Falls back to `<api origin>/shop/registration/verification`. */
+    readonly EXPO_PUBLIC_WEB_REGISTRATION_URL?: string;
+    /** Vendor app: support address used by "Contact support" (mailto:). */
+    readonly EXPO_PUBLIC_SUPPORT_EMAIL?: string;
     /** Build-time only — source map upload. Never inlined into the bundle. */
     readonly SENTRY_ORG?: string;
     readonly SENTRY_PROJECT_CUSTOMER?: string;

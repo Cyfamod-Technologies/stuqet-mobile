@@ -226,6 +226,31 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     plugins: [
       "expo-router",
       "expo-secure-store",
+      // Photo uploads (shop logo, banners, product photos, documents). Without
+      // these strings iOS refuses the camera and photo library.
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Allow $(PRODUCT_NAME) to access your photos so you can upload them.",
+          cameraPermission:
+            "Allow $(PRODUCT_NAME) to use your camera so you can take photos to upload.",
+        },
+      ],
+      // Vendor app only: fingerprint / Face ID unlock. The plugin adds the iOS
+      // NSFaceIDUsageDescription string (without it Face ID cannot be used) and
+      // the Android biometric permissions.
+      ...(ROUTE === "vendor"
+        ? ([
+            [
+              "expo-local-authentication",
+              {
+                faceIDPermission:
+                  "Allow $(PRODUCT_NAME) to use Face ID to unlock your shop account.",
+              },
+            ],
+          ] satisfies NonNullable<ExpoConfig["plugins"]>)
+        : []),
       [
         "expo-build-properties",
         {
