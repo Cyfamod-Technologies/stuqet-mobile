@@ -1,0 +1,272 @@
+name: Release — Build & Submit iOS
+
+on:
+  # Dispatch only, and (enforced in the preflight job) only from prod — the
+  # same policy release-android.yml follows: "code merged" and "this app gets
+  # uploaded to App Store Connect" are deliberately different events. Note that
+  # .eas/workflows/deploy-to-production.yml still carries an `on: push` trigger
+  # for prod; its iOS jobs stay commented out precisely so that merging cannot
+  # start a TestFlight upload behind anyone's back.
+  #
+  # Unlike Android, the build itself does not run here. iOS needs macOS and
+  # Apple signing material, so this dispatches an EAS Build and waits on it.
+  # That means the build environment is EAS's, not this runner's:
+  # EXPO_PUBLIC_API_BASE_URL, the per-app Sentry values and SENTRY_AUTH_TOKEN
+  # have to exist as environment variables on the EAS project's `production`
+  # environment, because nothing set on this runner reaches the worker.
+  workflow_dispatch:
+    inputs:
+      route:
+        description: "Which app to release"
+        required: true
+        default: "customer"
+        type: choice
+        options:
+          - customer
+          - vendor
+          - both
+      preflight_only:
+        description: "Validate EAS auth and submit config without building or submitting"
+        required: true
+        default: false
+        type: boolean
+      skip_submit:
+        description: "Build only — do not upload the build to App Store Connect/TestFlight"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-ios-${{ github.ref }}
+  # Never cancel in flight: once EAS has handed a build to App Store Connect,
+  # killing this run would not undo the upload — it would only lose the log
+  # that says it happened.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Pinned to the major so a release is reproducible and a new EAS major
+  # cannot change build behaviour between two dispatches of the same commit.
+  # Bump this deliberately, after someone has run a build on the new major.
+  EAS_CLI_VERSION: "^24.6.0"
+
+jobs:
+  # Deliberately cheap — no build, no credentials beyond EXPO_TOKEN — so the
+  # things that actually break between releases (an expired token, a missing
+  # App Store Connect app id) surface in a minute rather than 40 minutes into
+  # an EAS queue.
+  preflight:
+    name: "Preflight — ${{ matrix.app.route }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(inputs.route == 'both' && '[{"route":"customer","key":"CUSTOMER"},{"route":"vendor","key":"VENDOR"}]' || inputs.route == 'vendor' && '[{"route":"vendor","key":"VENDOR"}]' || '[{"route":"customer","key":"CUSTOMER"}]') }}
+
+    steps:
+      # Only a real release is restricted to prod — a preflight_only dispatch
+      # can run from any branch, since it builds and uploads nothing. The
+      # `release` job below `needs: [preflight]`, so failing here also stops it
+      # outright. A loud failure, not a silent skip: dispatching from the wrong
+      # branch by mistake should be obvious.
+      - name: Restrict real releases to the prod branch
+        if: ${{ inputs.preflight_only != true }}
+        run: |
+          if [[ "${{ github.ref }}" != "refs/heads/prod" ]]; then
+            echo "::error::A real release (preflight_only unchecked) can only be dispatched from the prod branch. This run was dispatched from '${{ github.ref_name }}'. Re-run with prod selected as the branch, or check preflight_only to just validate EAS auth from here."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Validate required release secrets
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_PROJECT_ID: ${{ vars[format('EAS_PROJECT_ID_{0}', matrix.app.key)] || secrets[format('EAS_PROJECT_ID_{0}', matrix.app.key)] }}
+          APP_KEY: ${{ matrix.app.key }}
+        run: |
+          if [[ -z "$EXPO_TOKEN" ]]; then
+            echo "::error::Missing GitHub Actions secret: EXPO_TOKEN. Create a robot access token in your Expo account's access-token settings and add it to this repository's secrets."
+            exit 1
+          fi
+
+          if [[ -z "$EAS_PROJECT_ID" ]]; then
+            echo "::error::Missing EAS_PROJECT_ID_${APP_KEY}. Add it as a repository variable (run 'eas init' once for this app to get the id)."
+            exit 1
+          fi
+
+      # `--auto-submit` uses the submit profile named like the build profile.
+      # With an empty `ios` block, a non-interactive submit has no App Store
+      # Connect app to upload to, and the failure only shows up after the whole
+      # EAS build. Catch it here instead.
+      - name: Verify the App Store Connect app id is configured
+        if: ${{ inputs.skip_submit != true }}
+        env:
+          PROFILE: production-${{ matrix.app.route }}
+        run: |
+          node -e '
+            const profile = process.argv[1];
+            const eas = JSON.parse(require("node:fs").readFileSync("eas.json", "utf8"));
+            const ascAppId = eas.submit?.[profile]?.ios?.ascAppId;
+            if (!ascAppId) {
+              console.error(`::error::eas.json submit.${profile}.ios.ascAppId is not set, so --auto-submit has no App Store Connect app to upload to. Set it (the numeric Apple ID from App Store Connect → App Information), or dispatch with skip_submit checked.`);
+              process.exit(1);
+            }
+            console.log(`submit.${profile}.ios.ascAppId = ${ascAppId}`);
+          ' "$PROFILE"
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      # Required, not optional: `eas build` evaluates app.config.ts on this
+      # runner to resolve the project, and that config imports from
+      # `expo/config` and `expo/config-plugins`.
+      - name: Install Node dependencies
+        run: npm ci
+
+      # Proves the token is live and still has access to this project, which
+      # is the single most likely thing to have rotted since the last release.
+      - name: Verify EAS authentication and project access
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_ROUTE: ${{ matrix.app.route }}
+          EAS_PROJECT_ID_CUSTOMER: ${{ vars.EAS_PROJECT_ID_CUSTOMER || secrets.EAS_PROJECT_ID_CUSTOMER }}
+          EAS_PROJECT_ID_VENDOR: ${{ vars.EAS_PROJECT_ID_VENDOR || secrets.EAS_PROJECT_ID_VENDOR }}
+          EAS_OWNER: ${{ vars.EAS_OWNER || secrets.EAS_OWNER }}
+        run: |
+          npx "eas-cli@$EAS_CLI_VERSION" whoami
+          npx "eas-cli@$EAS_CLI_VERSION" project:info
+
+  release:
+    name: "Release build — ${{ matrix.app.route }} (iOS)"
+    needs: [preflight]
+    # `needs: [preflight]` already enforces the branch (that job fails loudly
+    # and stops this one); the ref check here is defence in depth against this
+    # job's condition somehow being evaluated independently of that failure.
+    if: ${{ inputs.preflight_only != true && github.ref == 'refs/heads/prod' }}
+    runs-on: ubuntu-latest
+    # ubuntu, not macOS: nothing is compiled here. EAS does the macOS build —
+    # the generous timeout covers time spent queueing on EAS, not CPU here.
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(inputs.route == 'both' && '[{"route":"customer","key":"CUSTOMER"},{"route":"vendor","key":"VENDOR"}]' || inputs.route == 'vendor' && '[{"route":"vendor","key":"VENDOR"}]' || '[{"route":"customer","key":"CUSTOMER"}]') }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # Third check on the same rule, and the cheapest to keep honest: this is
+      # the same guard a local production build can run, so the branch policy
+      # has one implementation rather than one per entry point.
+      - name: Refuse to build from anywhere but prod
+        run: node scripts/require-production-branch.mjs
+
+      # --auto-submit uses the submit profile named like the build profile
+      # (eas.json submit.production-<route>.ios). The build number is not
+      # passed: appVersionSource "remote" plus the production profile's
+      # autoIncrement means EAS owns iOS build numbers, so a build cannot reuse
+      # a CFBundleVersion that App Store Connect has already seen.
+      - name: Build iOS and upload to App Store Connect
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_ROUTE: ${{ matrix.app.route }}
+          EAS_PROJECT_ID_CUSTOMER: ${{ vars.EAS_PROJECT_ID_CUSTOMER || secrets.EAS_PROJECT_ID_CUSTOMER }}
+          EAS_PROJECT_ID_VENDOR: ${{ vars.EAS_PROJECT_ID_VENDOR || secrets.EAS_PROJECT_ID_VENDOR }}
+          EAS_OWNER: ${{ vars.EAS_OWNER || secrets.EAS_OWNER }}
+          ROUTE: ${{ matrix.app.route }}
+        run: |
+          submit_args=("--auto-submit")
+
+          if [[ "${{ inputs.skip_submit }}" == "true" ]]; then
+            submit_args=()
+            echo "::notice::skip_submit was checked — building without uploading to App Store Connect."
+          fi
+
+          npx "eas-cli@$EAS_CLI_VERSION" build \
+            --platform ios \
+            --profile "production-${ROUTE}" \
+            --non-interactive \
+            "${submit_args[@]}"
+
+          {
+            echo "### iOS release build — ${ROUTE}"
+            echo
+            echo "- Profile: \`production-${ROUTE}\`"
+            echo "- Submitted to App Store Connect: \`${{ inputs.skip_submit == true && 'no (skip_submit)' || 'yes' }}\`"
+            echo "- Build number: assigned by EAS (remote versioning)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Discord — success
+        if: ${{ success() }}
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          ROUTE: ${{ matrix.app.route }}
+          SUBMITTED: ${{ inputs.skip_submit == true && 'no (build only)' || 'yes' }}
+          SHORT_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$DISCORD_BUILD_WEBHOOK_URL" ]]; then
+            echo "DISCORD_BUILD_WEBHOOK_URL not set — skipping notification."
+            exit 0
+          fi
+          # $'\n' is a real newline — a plain "\n" in a double-quoted bash
+          # string is just backslash-n, which Discord renders literally.
+          message="🍎 **Stuqet ${ROUTE} iOS build finished**"$'\n'"Uploaded to App Store Connect: ${SUBMITTED}"$'\n'"TestFlight still has to finish Apple's processing before testers see it."$'\n'"Commit: \`${SHORT_SHA:0:7}\`"$'\n'"Run: ${RUN_URL}"
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$(node -e "console.log(JSON.stringify({content: process.argv[1]}))" "$message")" \
+            "$DISCORD_BUILD_WEBHOOK_URL"
+
+      - name: Notify Discord — failure
+        if: failure()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          ROUTE: ${{ matrix.app.route }}
+          SHORT_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$DISCORD_BUILD_WEBHOOK_URL" ]]; then
+            echo "DISCORD_BUILD_WEBHOOK_URL not set — skipping notification."
+            exit 0
+          fi
+          message="⚠️ **Stuqet ${ROUTE} iOS release build failed**"$'\n'"Commit: \`${SHORT_SHA:0:7}\`"$'\n'"Run: ${RUN_URL}"
+          curl --fail --silent --show-error \
+            -H "Content-Type: application/json" \
+            -d "$(node -e "console.log(JSON.stringify({content: process.argv[1]}))" "$message")" \
+            "$DISCORD_BUILD_WEBHOOK_URL"

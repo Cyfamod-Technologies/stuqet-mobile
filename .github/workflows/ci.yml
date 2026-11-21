@@ -1,14 +1,20 @@
-name: CI — Dev Branch Checks
+name: CI
 
 on:
+  # main only. prod is deliberately absent: only main can open a PR into prod
+  # (enforced by prod-pr-guard.yml), and anything reaching main has already
+  # passed these checks, so running them again on the prod PR and again on the
+  # prod push is re-checking identical code three times.
   push:
     branches:
-      - dev
+      - main
   pull_request:
     branches:
-      - dev
       - main
-  # Allow anyone to manually kick off a test APK/AAB build on any branch
+  # Lets anyone kick off a test Android build on any branch without waiting
+  # for a push to main. APK only — this job has no signing keystore, so an
+  # AAB build here would just fail; Play AABs are built only by
+  # release-android.yml, which holds the signing secrets.
   workflow_dispatch:
     inputs:
       route:
@@ -19,30 +25,17 @@ on:
         options:
           - customer
           - vendor
-      artifact:
-        description: "Artifact type (apk = direct install, aab = Play Store format)"
-        required: true
-        default: "apk"
-        type: choice
-        options:
-          - apk
-          - aab
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 1: Fast quality checks — runs on every push/PR to dev and main
-  # Completes in ~1 minute. No native build tooling required.
-  # ─────────────────────────────────────────────────────────────────────────────
+  # Fast checks on every push/PR to main. No native build tooling required.
   quality:
-    name: "Quality Checks (lint · format · typecheck)"
-    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
-    # Self-hosted: if the runner is offline/busy this job just sits "Queued"
-    # on the PR with no automatic failure and no notification. This bounds
-    # that wait so a dead runner surfaces as a fast, visible red X instead.
+    name: "Quality checks (format · lint · typecheck)"
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
     timeout-minutes: 10
 
     steps:
@@ -55,7 +48,6 @@ jobs:
           node-version: 24
 
       - name: Cache npm dependencies
-        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
@@ -74,33 +66,6 @@ jobs:
 
       - name: Type-check
         run: npm run typecheck
-
-      # _publish-android.yml is the only place Play Store / signing secrets
-      # are touched, and it is only reachable via workflow_call from
-      # handle-release-approval.yml -- see that file's header comment. If
-      # anyone ever adds a workflow_dispatch, push, or pull_request trigger
-      # back onto it (even for something that looks harmless, like "a quick
-      # manual test trigger"), the entire two-person release-approval gate
-      # becomes a no-op: there's a second, direct door to those secrets
-      # that skips approval, and nothing else here would turn red to say
-      # so. This is that alarm. It must stay a hard failure, never
-      # continue-on-error.
-      - name: Guard release-publish workflow trigger
-        run: |
-          file=".github/workflows/_publish-android.yml"
-          # Only lines indented exactly 2 spaces directly under "on:" --
-          # NOT nested keys like "inputs:"/"route:" inside workflow_call's
-          # own definition, which sit 4+ spaces deep and must not be
-          # mistaken for sibling triggers.
-          triggers="$(awk '/^on:/{flag=1; next} /^[a-zA-Z]/{flag=0} flag && /^  [a-zA-Z_]+:/{print}' "$file" | sed 's/^  //;s/:.*//')"
-
-          if [[ "$triggers" != "workflow_call" ]]; then
-            echo "::error::$file must have ONLY 'workflow_call' as a trigger. Found: $(echo "$triggers" | tr '\n' ' ')"
-            echo "::error::This file gates real Play Store publish access. Any other trigger (workflow_dispatch, push, pull_request) creates a direct path to release secrets that skips the required two-person approval in handle-release-approval.yml."
-            exit 1
-          fi
-
-          echo "$file has exactly one trigger: workflow_call. Release-publish gate is intact."
 
       # Non-blocking for now — 17 pre-existing high-severity vulnerabilities
       # (mostly in the Expo dependency chain) need real SDK version bumps to
@@ -123,21 +88,21 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"content\": \"🔴 **Quality Checks failed** on \`${{ github.ref_name }}\` (${{ github.event_name }}) — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}>\"}"
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job 2: Manual test build — only runs when triggered via workflow_dispatch
-  # Use this when you want a real APK/AAB without waiting on EAS or your laptop.
-  # ─────────────────────────────────────────────────────────────────────────────
-  build-android-test:
-    name: "Test Build — Android ${{ github.event.inputs.route }} (${{ github.event.inputs.artifact }})"
-    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
-    # Only execute this job when manually triggered, not on every push
+  # Manual, on-demand Android APK for any branch — a quick way to sanity
+  # check a change without pushing to main. Play publishing lives in
+  # release-android.yml.
+  test-build:
+    name: "Test Android build (${{ github.event.inputs.route }} apk)"
+    runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
-    # Quality checks must pass before we spend time on a native build
-    needs: quality
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Free runner disk space
+        run: bash scripts/ci-free-runner-disk.sh
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v5
@@ -145,7 +110,6 @@ jobs:
           node-version: 24
 
       - name: Cache npm dependencies
-        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
@@ -168,54 +132,62 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      # modules-2 + wrapper only. Caching all of ~/.gradle/caches also pulls in
+      # transforms/ and build-cache/, which are several GB, machine-specific,
+      # and the usual reason cache.tzst fills the disk.
       - name: Cache Gradle dependencies
-        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ~/.gradle/caches
+            ~/.gradle/caches/modules-2
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('app.config.ts', 'package.json') }}
+          key: ${{ runner.os }}-gradle-modules-${{ hashFiles('app.config.ts', 'package.json') }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            ${{ runner.os }}-gradle-modules-
 
-      - name: Install Node dependencies
+      - name: Install dependencies
         run: npm ci
 
       - name: Create production env file for native build
-        run: |
-          cat > .env.prod <<'EOF'
-          EXPO_PUBLIC_API_BASE_URL=${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
-          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
-          EXPO_PUBLIC_SENTRY_DSN_VENDOR=${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
-          SENTRY_PROJECT_CUSTOMER=${{ secrets.SENTRY_PROJECT_CUSTOMER }}
-          SENTRY_PROJECT_VENDOR=${{ secrets.SENTRY_PROJECT_VENDOR }}
-          SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
-          EXPO_PUBLIC_ENABLE_THEME_SWITCH=${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
-          EOF
-
-      - name: Run Android build script
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
           SENTRY_PROJECT_CUSTOMER: ${{ secrets.SENTRY_PROJECT_CUSTOMER }}
           SENTRY_PROJECT_VENDOR: ${{ secrets.SENTRY_PROJECT_VENDOR }}
-          # Passed through env instead of interpolated directly into the
-          # script text below: ${{ }} substitution happens before the shell
-          # ever runs, so quoting the input inline doesn't protect against
-          # injection the way reading it as a real shell variable does -
-          # this runs on our own self-hosted runner, not a throwaway one.
-          BUILD_ROUTE: ${{ github.event.inputs.route }}
-          BUILD_ARTIFACT: ${{ github.event.inputs.artifact }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH: ${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
         run: |
-          node scripts/build-android.mjs \
-            "$BUILD_ROUTE" \
-            "$BUILD_ARTIFACT"
+          if [[ -z "$EXPO_PUBLIC_API_BASE_URL" ]]; then
+            echo "::error::Missing GitHub Actions secret: EXPO_PUBLIC_API_BASE_URL"
+            exit 1
+          fi
+          cat > .env.prod <<EOF
+          EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
+          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER=${EXPO_PUBLIC_SENTRY_DSN_CUSTOMER}
+          EXPO_PUBLIC_SENTRY_DSN_VENDOR=${EXPO_PUBLIC_SENTRY_DSN_VENDOR}
+          SENTRY_PROJECT_CUSTOMER=${SENTRY_PROJECT_CUSTOMER}
+          SENTRY_PROJECT_VENDOR=${SENTRY_PROJECT_VENDOR}
+          SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH=${EXPO_PUBLIC_ENABLE_THEME_SWITCH}
+          EOF
+
+      - name: Build apk
+        env:
+          # Passed through env instead of interpolated into the script text:
+          # ${{ }} substitution happens before the shell runs, so reading the
+          # input as a real shell variable is what protects against injection.
+          BUILD_ROUTE: ${{ github.event.inputs.route }}
+        run: node scripts/build-android.mjs "$BUILD_ROUTE" apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          # Artifact is named so you can tell exactly what it is from the Actions UI
-          name: "stuqet-${{ github.event.inputs.route }}-${{ github.event.inputs.artifact }}-${{ github.sha }}"
-          path: local-builds/android/**/*.${{ github.event.inputs.artifact }}
-          # Keep test builds for 14 days to avoid storage bloat
-          retention-days: 14
+          name: "stuqet-${{ github.event.inputs.route }}-test-apk-${{ github.sha }}"
+          path: local-builds/android/**/*.apk
+          retention-days: 7
+
+      - name: Trim Gradle cache before post-job save
+        if: always()
+        continue-on-error: true
+        run: bash scripts/ci-trim-gradle-cache.sh

@@ -19,7 +19,11 @@ export const logger = {
 
   apiError: (error: unknown, context: string) => {
     if (isDev) {
-      console.error(
+      // An expired session is an expected state (it routes to the Session
+      // expired screen), so it must not raise the red error box.
+      const log =
+        (error as any)?.response?.status === 401 ? console.warn : console.error;
+      log(
         `[API Error] ${context}:`,
         JSON.stringify(
           {

@@ -1,12 +1,5 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from "react-native";
+import { View, Pressable, LayoutAnimation } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { cn } from "~/lib/utils/helpers";
 import { colors } from "~/lib/colors";

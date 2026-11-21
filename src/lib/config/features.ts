@@ -25,3 +25,13 @@ export const isVendorApp = APP_ROUTE === "vendor";
  */
 export const isThemeSwitchEnabled =
   process.env.EXPO_PUBLIC_ENABLE_THEME_SWITCH !== "false";
+
+/**
+ * Whether the Google / Apple sign-in buttons are shown on the login screen.
+ *
+ * Visible by default (they match the approved design); set
+ * `EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN="false"` to hide them until the backend
+ * supports OAuth.
+ */
+export const isSocialLoginEnabled =
+  process.env.EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN !== "false";

@@ -1,206 +1,125 @@
-name: Release — 1. Request
+name: Release — Build & Publish Android
 
+# One manual workflow for everything Android that touches Google Play: it
+# validates secrets and signing, builds the signed AAB, and uploads it to the
+# Play track you pick, for Stuqet Customer, Stuqet Vendor, or both.
+#
+# There is no request/approval step. "Code merged" and "this app gets uploaded
+# to Play" are still deliberately different events — nothing here runs on a
+# push or a PR — but the person who clicks Run workflow is the one releasing.
+#
+# Preflight used to run on every PR. It no longer does: only main can open a PR
+# into prod (enforced by prod-pr-guard.yml) and main is already CI-green, so a
+# PR run was re-checking checked code. The credential/signing/Play-auth
+# validation it provided is not lost: the preflight job runs on every dispatch,
+# ahead of every real release, and can be run on its own with preflight_only.
 on:
-  # Every pull_request run -- against dev or main -- is preflight only:
-  # secrets/signing/Play-track checks, no AAB build, no Play publish.
-  # "Code is merged to main" and "this app gets released to Play" are
-  # deliberately different events. workflow_dispatch below, with
-  # preflight_only left unchecked, doesn't build or publish anything
-  # either -- it only opens a release-request PR for someone else to
-  # approve (see "Open release-approval request" below; the real
-  # build+publish lives entirely in _publish-android.yml, reachable only
-  # after that approval). That's what a merge to main used to do
-  # automatically for both apps at once -- which is exactly what broke
-  # here: an unrelated fix for one app forced a rebuild and Play
-  # resubmission of the other, mid-review, for nothing.
-  pull_request:
-    branches:
-      - dev
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - closed
-    paths:
-      - ".github/workflows/release-android.yml"
-      - "app.config.ts"
-      - "assets/**"
-      - "docs/releases/**"
-      - "eas.json"
-      - "package-lock.json"
-      - "package.json"
-      - "scripts/**"
-      - "src/**"
-  # Also allow triggering manually to open a release request outside the
-  # normal cycle (e.g. a hotfix). Leaving preflight_only unchecked here
-  # never builds or publishes anything directly -- it only opens a PR for
-  # someone else to approve; see "Open release-approval request" below.
   workflow_dispatch:
     inputs:
       route:
-        description: "Which app the release request is for"
+        description: "Which app to release"
         required: true
         default: "customer"
         type: choice
         options:
           - customer
           - vendor
-          - all
-      play_store_track:
-        description: "Google Play track the eventual publish would use"
-        required: false
-        default: ""
-        type: string
+          - both
+      track:
+        description: "Google Play track to publish to"
+        required: true
+        default: "internal"
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
       preflight_only:
-        description: "Validate only -- leave unchecked to open a release request for approval instead; this never publishes directly either way"
+        description: "Validate secrets, the upload-key fingerprint and Play auth without building or submitting"
+        required: true
+        default: false
+        type: boolean
+      skip_publish:
+        description: "Build the signed AAB and keep it as a run artifact, but do not upload it to Play"
         required: true
         default: false
         type: boolean
 
 concurrency:
-  group: release-android-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
+  group: release-android-${{ github.ref }}
+  # Both apps read Play's highest versionCode before building. Never cancel a
+  # release after it may have published.
+  cancel-in-progress: false
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Job: preflight-check every dev/main PR. On an explicit workflow_dispatch
-  # with preflight_only left unchecked, additionally opens a release-request
-  # PR for someone else to approve. Never builds or publishes anything
-  # itself -- that only happens in _publish-android.yml, and only after a
-  # second, different, named person approves via handle-release-approval.yml.
-  # ─────────────────────────────────────────────────────────────────────────────
-  release-android:
-    name: "Request Android Release (${{ matrix.route }})"
-    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
-    # Any qualifying PR (see the paths filter above) runs preflight only,
-    # for either base branch, as long as it isn't the "closed" action.
-    # workflow_dispatch is the only path that can additionally open a
-    # release-request PR -- see the "Open release-approval request" step's
-    # own if condition below, true only for workflow_dispatch with
-    # preflight_only not set to true.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.action != 'closed')
-    # Grant write permission so the action can push a release-request
-    # branch and open the release-approval request PR (see "Open
-    # release-approval request" below). This job never touches Play Store
-    # or signing secrets any more -- those moved to _publish-android.yml,
-    # reachable only via workflow_call from handle-release-approval.yml
-    # after a second, named, different person approves.
-    permissions:
-      contents: write
-      actions: write # needed to delete the AAB artifact once Play publish succeeds
-      pull-requests: write # needed to open the release-approval request PR
+  # Runs on every dispatch, including ahead of every real release — it always
+  # precedes the actual build. Kept deliberately cheap — no Android SDK or
+  # Gradle here — so credential breakage surfaces in about a minute rather
+  # than partway into the real build below. With route=both it runs for both
+  # apps first, so a broken credential for one app stops the release of the
+  # other before anything is published.
+  preflight:
+    name: "Preflight — ${{ matrix.app.route }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     strategy:
       fail-fast: false
-      # Build both routes in parallel when triggered from a merged PR
       matrix:
-        route: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.route != 'all' && fromJSON(format('["{0}"]', github.event.inputs.route)) || fromJSON('["customer", "vendor"]') }}
+        app: ${{ fromJSON(inputs.route == 'both' && '[{"route":"customer","key":"CUSTOMER"},{"route":"vendor","key":"VENDOR"}]' || inputs.route == 'vendor' && '[{"route":"vendor","key":"VENDOR"}]' || '[{"route":"customer","key":"CUSTOMER"}]') }}
 
     steps:
-      # Customer and vendor don't necessarily share one Play track: each app has
-      # its own Play listing, and the track that has testers and country
-      # availability configured can differ between them. A single
-      # PLAY_STORE_TRACK variable can't express "different track per app", so
-      # each route gets its own variable (PLAY_STORE_TRACK_CUSTOMER /
-      # PLAY_STORE_TRACK_VENDOR), resolved once here instead of repeating the
-      # fallback logic at every step that needs it.
-      - name: Resolve release track — ${{ matrix.route }}
-        env:
-          # Passed through env instead of interpolated directly into the
-          # script text below: this is a free-text workflow_dispatch input,
-          # and ${{ }} substitution happens before the shell ever runs, so
-          # quoting it inline doesn't protect against injection the way
-          # reading it as a real shell variable does.
-          INPUT_PLAY_STORE_TRACK: ${{ github.event.inputs.play_store_track }}
+      # Only a real release (preflight_only unchecked) is restricted to prod —
+      # a preflight_only dispatch can still run from any branch, since it
+      # builds and publishes nothing. The `release` job below `needs:
+      # [preflight]`, so failing here also prevents it from running at all;
+      # this is deliberately a loud failure rather than a silent skip, so
+      # dispatching from the wrong branch by mistake is obvious.
+      - name: Restrict real releases to the prod branch
+        if: ${{ inputs.preflight_only != true }}
         run: |
-          if [[ -n "$INPUT_PLAY_STORE_TRACK" ]]; then
-            track="$INPUT_PLAY_STORE_TRACK"
-          elif [[ "${{ matrix.route }}" == "customer" ]]; then
-            track="${{ vars.PLAY_STORE_TRACK_CUSTOMER }}"
-          else
-            track="${{ vars.PLAY_STORE_TRACK_VENDOR }}"
+          if [[ "${{ github.ref }}" != "refs/heads/prod" ]]; then
+            echo "::error::A real release (preflight_only unchecked) can only be dispatched from the prod branch. This run was dispatched from '${{ github.ref_name }}'. Re-run with prod selected as the branch, or check preflight_only to just validate secrets/signing from here."
+            exit 1
           fi
-          echo "TRACK=$track" >> "$GITHUB_ENV"
 
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Setup Node.js 24
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
-
-      - name: Cache npm dependencies
-        if: runner.environment == 'github-hosted'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
       - name: Validate required release secrets
         env:
           EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
-          EXPO_PUBLIC_SENTRY_DSN_CUSTOMER: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_CUSTOMER }}
-          EXPO_PUBLIC_SENTRY_DSN_VENDOR: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN_VENDOR }}
-          EXPO_PUBLIC_ENABLE_THEME_SWITCH: ${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          SENTRY_PROJECT_CUSTOMER: ${{ secrets.SENTRY_PROJECT_CUSTOMER }}
-          SENTRY_PROJECT_VENDOR: ${{ secrets.SENTRY_PROJECT_VENDOR }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets[format('EXPO_PUBLIC_SENTRY_DSN_{0}', matrix.app.key)] }}
+          SENTRY_PROJECT: ${{ secrets[format('SENTRY_PROJECT_{0}', matrix.app.key)] }}
           PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
-          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
-          PLAY_STORE_TRACK: ${{ env.TRACK }}
-          ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER }}
-          ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER }}
-          ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER }}
-          ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER }}
-          ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR }}
-          ANDROID_UPLOAD_STORE_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_VENDOR }}
-          ANDROID_UPLOAD_KEY_ALIAS_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_VENDOR }}
-          ANDROID_UPLOAD_KEY_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD_VENDOR }}
-          ANDROID_UPLOAD_SHA1_CUSTOMER: ${{ vars.ANDROID_UPLOAD_SHA1_CUSTOMER }}
-          ANDROID_UPLOAD_SHA1_VENDOR: ${{ vars.ANDROID_UPLOAD_SHA1_VENDOR }}
-          APP_VERSION_PUBLISH_KEY: ${{ secrets.APP_VERSION_PUBLISH_KEY }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets[format('ANDROID_UPLOAD_KEYSTORE_BASE64_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets[format('ANDROID_UPLOAD_STORE_PASSWORD_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets[format('ANDROID_UPLOAD_KEY_ALIAS_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets[format('ANDROID_UPLOAD_KEY_PASSWORD_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_SHA1: ${{ vars[format('ANDROID_UPLOAD_SHA1_{0}', matrix.app.key)] }}
+          APP_KEY: ${{ matrix.app.key }}
         run: |
-          missing=0
-          required_vars=(
-            EXPO_PUBLIC_API_BASE_URL
-            EXPO_PUBLIC_SENTRY_DSN_CUSTOMER
-            EXPO_PUBLIC_SENTRY_DSN_VENDOR
-            EXPO_PUBLIC_ENABLE_THEME_SWITCH
-            SENTRY_AUTH_TOKEN
-            SENTRY_PROJECT_CUSTOMER
-            SENTRY_PROJECT_VENDOR
-            PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON
-            DISCORD_BUILD_WEBHOOK_URL
-            PLAY_STORE_TRACK
+          # Report names with the per-app suffix so the missing secret is
+          # findable by the name it actually has in repository settings.
+          declare -A secret_names=(
+            [EXPO_PUBLIC_API_BASE_URL]=EXPO_PUBLIC_API_BASE_URL
+            [SENTRY_AUTH_TOKEN]=SENTRY_AUTH_TOKEN
+            [EXPO_PUBLIC_SENTRY_DSN]="EXPO_PUBLIC_SENTRY_DSN_${APP_KEY}"
+            [SENTRY_PROJECT]="SENTRY_PROJECT_${APP_KEY}"
+            [PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON]=PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON
+            [ANDROID_UPLOAD_KEYSTORE_BASE64]="ANDROID_UPLOAD_KEYSTORE_BASE64_${APP_KEY}"
+            [ANDROID_UPLOAD_STORE_PASSWORD]="ANDROID_UPLOAD_STORE_PASSWORD_${APP_KEY}"
+            [ANDROID_UPLOAD_KEY_ALIAS]="ANDROID_UPLOAD_KEY_ALIAS_${APP_KEY}"
+            [ANDROID_UPLOAD_KEY_PASSWORD]="ANDROID_UPLOAD_KEY_PASSWORD_${APP_KEY}"
+            [ANDROID_UPLOAD_SHA1]="ANDROID_UPLOAD_SHA1_${APP_KEY} (repository variable)"
           )
 
-          if [[ "${{ matrix.route }}" == "customer" ]]; then
-            required_vars+=(
-              ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER
-              ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER
-              ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER
-              ANDROID_UPLOAD_KEY_PASSWORD_CUSTOMER
-              ANDROID_UPLOAD_SHA1_CUSTOMER
-            )
-          else
-            required_vars+=(
-              ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR
-              ANDROID_UPLOAD_STORE_PASSWORD_VENDOR
-              ANDROID_UPLOAD_KEY_ALIAS_VENDOR
-              ANDROID_UPLOAD_KEY_PASSWORD_VENDOR
-              ANDROID_UPLOAD_SHA1_VENDOR
-            )
-          fi
-
-          for name in "${required_vars[@]}"; do
+          missing=0
+          for name in "${!secret_names[@]}"; do
             if [[ -z "${!name}" ]]; then
-              echo "::error::Missing GitHub Actions secret: ${name}"
+              echo "::error::Missing GitHub Actions secret or variable: ${secret_names[$name]}"
               missing=1
             fi
           done
@@ -210,15 +129,13 @@ jobs:
           fi
 
           case "$EXPO_PUBLIC_API_BASE_URL" in https://*) ;; *) echo "::error::EXPO_PUBLIC_API_BASE_URL must start with https://"; exit 1 ;; esac
-          case "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_CUSTOMER must start with https://"; exit 1 ;; esac
-          case "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_VENDOR must start with https://"; exit 1 ;; esac
-          case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
+          case "$EXPO_PUBLIC_SENTRY_DSN" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_${APP_KEY} must start with https://"; exit 1 ;; esac
 
-          # A non-empty check cannot tell a mis-pasted JSON credential apart. The
-          # Play publisher service-account key is a JSON blob downloaded from a Google
-          # console; checking its shape costs milliseconds and catches a bad paste
-          # here instead of partway through a long native build. Only pass/fail is
-          # printed; the value is never echoed.
+          # A non-empty check cannot tell a mis-pasted JSON credential apart.
+          # The Play publisher service-account key is a JSON blob downloaded
+          # from a Google console; checking its shape costs milliseconds and
+          # catches a bad paste here instead of partway through a long native
+          # build. Only pass/fail is printed; the value is never echoed.
           if ! printf '%s' "$PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON" | jq -e 'type == "object"' >/dev/null 2>&1; then
             echo "::error::PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON is not valid JSON. Paste the file contents raw -- not quoted, escaped, or base64-encoded."
             exit 1
@@ -227,10 +144,7 @@ jobs:
             echo "::error::PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON is not a Google service-account key (expected type=service_account with client_email and private_key)."
             exit 1
           fi
-          echo "PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON has the shape of a Google service-account key."
-
-      - name: Install Node dependencies
-        run: npm ci
+          echo "All required secrets are present and well-formed."
 
       - name: Setup Java JDK 17
         uses: actions/setup-java@v5
@@ -238,165 +152,57 @@ jobs:
           distribution: zulu
           java-version: "17"
 
-      - name: Verify Android upload key fingerprint — ${{ matrix.route }}
+      - name: Verify Android upload key fingerprint — ${{ matrix.app.route }}
         env:
-          ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER }}
-          ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER }}
-          ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER }}
-          ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR }}
-          ANDROID_UPLOAD_STORE_PASSWORD_VENDOR: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD_VENDOR }}
-          ANDROID_UPLOAD_KEY_ALIAS_VENDOR: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS_VENDOR }}
-          ANDROID_UPLOAD_SHA1_CUSTOMER: ${{ vars.ANDROID_UPLOAD_SHA1_CUSTOMER }}
-          ANDROID_UPLOAD_SHA1_VENDOR: ${{ vars.ANDROID_UPLOAD_SHA1_VENDOR }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets[format('ANDROID_UPLOAD_KEYSTORE_BASE64_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets[format('ANDROID_UPLOAD_STORE_PASSWORD_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets[format('ANDROID_UPLOAD_KEY_ALIAS_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_SHA1: ${{ vars[format('ANDROID_UPLOAD_SHA1_{0}', matrix.app.key)] }}
+          ROUTE: ${{ matrix.app.route }}
         run: |
-          if [[ "${{ matrix.route }}" == "customer" ]]; then
-            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_CUSTOMER"
-            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_CUSTOMER"
-            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_CUSTOMER"
-            expected_sha1="$ANDROID_UPLOAD_SHA1_CUSTOMER"
-          else
-            keystore_base64="$ANDROID_UPLOAD_KEYSTORE_BASE64_VENDOR"
-            store_password="$ANDROID_UPLOAD_STORE_PASSWORD_VENDOR"
-            key_alias="$ANDROID_UPLOAD_KEY_ALIAS_VENDOR"
-            expected_sha1="$ANDROID_UPLOAD_SHA1_VENDOR"
-          fi
-
-          keystore_path="$RUNNER_TEMP/stuqet-${{ matrix.route }}-upload-key-check.jks"
-          printf '%s' "$keystore_base64" | base64 --decode > "$keystore_path"
+          keystore_path="$RUNNER_TEMP/stuqet-${ROUTE}-upload-key-check.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
 
           keytool_output="$(keytool -list -v \
             -keystore "$keystore_path" \
-            -storepass "$store_password" \
-            -alias "$key_alias")"
+            -storepass "$ANDROID_UPLOAD_STORE_PASSWORD" \
+            -alias "$ANDROID_UPLOAD_KEY_ALIAS")"
 
-          if ! grep -Fq "SHA1: $expected_sha1" <<< "$keytool_output"; then
-            echo "::error::${{ matrix.route }} upload key SHA1 does not match Play Console/EAS expected SHA1."
-            echo "::error::Expected SHA1: $expected_sha1"
+          if ! grep -Fq "SHA1: $ANDROID_UPLOAD_SHA1" <<< "$keytool_output"; then
+            echo "::error::${ROUTE} upload key SHA1 does not match Play Console's expected SHA1."
+            echo "::error::Expected SHA1: $ANDROID_UPLOAD_SHA1"
             echo "$keytool_output" | grep -E "SHA1:|Alias name:"
             exit 1
           fi
 
-          echo "${{ matrix.route }} upload key fingerprint matches expected SHA1."
+          echo "${ROUTE} upload key fingerprint matches expected SHA1."
 
-      # Deliberately NOT gated behind the "skip on preflight" condition used
-      # below: this is a read-only Play Console API call that takes seconds,
-      # so every dev PR exercises the service account's androidpublisher
-      # credentials and this lookup logic. That turns an auth/permission
-      # break into a ~1-minute preflight failure instead of something only
-      # discovered 45 minutes into a real release build on main.
-      - name: Get current Play Store version code — ${{ matrix.route }}
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      # Read-only Play Console API call, so an auth/permission break surfaces
+      # before the real release build.
+      - name: Check Play Console access — ${{ matrix.app.route }}
         env:
           PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+          ROUTE: ${{ matrix.app.route }}
+          TRACK: ${{ inputs.track }}
         run: |
-          version_code="$(node scripts/get-play-version-code.mjs com.stuqet.${{ matrix.route }} "$TRACK")"
-          echo "Highest existing Play Console versionCode for com.stuqet.${{ matrix.route }}: $version_code"
-          echo "PLAY_MAX_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
-
-      # Real publish steps (Android SDK, build, sign, upload to Play) no
-      # longer live in this job at all -- see _publish-android.yml, which
-      # has no trigger of its own and can only be reached via workflow_call
-      # from handle-release-approval.yml. This step is the only thing the
-      # real-dispatch path does beyond preflight: it opens a small PR
-      # recording who's asking for what, and stops. Nothing below this
-      # point touches Play Store or signing secrets. The actual publish
-      # only happens if a second, different, named person from
-      # .github/CODEOWNERS approves that PR.
-      - name: Open release-approval request
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.preflight_only != true }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ROUTE: ${{ matrix.route }}
-          TRACK: ${{ env.TRACK }}
-          REQUESTED_BY: ${{ github.actor }}
-        run: |
-          request_id="${{ github.run_id }}-${{ matrix.route }}"
-          branch="release-request/$request_id"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$branch"
-
-          mkdir -p release-requests
-          cat > "release-requests/$request_id.json" <<JSON
-          {
-            "route": "$ROUTE",
-            "track": "$TRACK",
-            "requested_by": "$REQUESTED_BY",
-            "run_id": "${{ github.run_id }}",
-            "requested_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          JSON
-
-          git add "release-requests/$request_id.json"
-          git commit -m "release request: ${ROUTE} (${TRACK}) requested by @${REQUESTED_BY}"
-          git push origin "$branch"
-
-          gh pr create \
-            --base release-gate \
-            --head "$branch" \
-            --title "Release request: ${ROUTE} — requested by @${REQUESTED_BY}" \
-            --body "## Release request
-
-          - **App:** ${ROUTE}
-          - **Play Store track:** ${TRACK}
-          - **Requested by:** @${REQUESTED_BY}
-          - **Triggering run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          > [!IMPORTANT]
-          > **Do not merge this PR. Merging publishes nothing.**
-          >
-          > **Approving** it triggers the real build and Play Store publish via handle-release-approval.yml. Denying or ignoring it means nothing ships.
-          >
-          > The approval must come from someone in .github/CODEOWNERS **other than @${REQUESTED_BY}** — the requester's own approval is rejected.
-          >
-          > Merging only folds the request file into \`release-gate\` and ships nothing. The PR is closed automatically once a publish succeeds; if a publish fails it stays open so the same approval can be retried."
-
-      # Each matrix leg announces its own result directly, so there is nothing
-      # to relay between jobs. A relayed result can be lost when a backup
-      # upload fails (for example on a storage-quota hiccup), leaving the
-      # notification with nothing to report even though the release already
-      # published. Posting from here means there is nothing left to relay.
-      #
-      # continue-on-error on all three: a Discord webhook hiccup must never
-      # be able to fail this job.
-      #
-      # IS_PREFLIGHT is hardcoded true here, unconditionally -- this job
-      # never builds or publishes anything any more, on any trigger,
-      # including a real-dispatch run. "Success" here always means
-      # "preflight passed" (and, on the real-dispatch path, that a release
-      # request was opened -- see the dedicated "release requested" notify
-      # step below, which carries that news instead of this one). Saying
-      # anything else here would risk this message reading as "the app
-      # shipped" when it hasn't -- see _publish-android.yml's own Discord
-      # steps for the actual publish outcome.
-      - name: Notify Discord — success
-        if: success()
-        continue-on-error: true
-        env:
-          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
-          NOTIFY_MODE: success
-          IS_PREFLIGHT: "true"
-          ROUTE: ${{ matrix.route }}
-          TRACK: ${{ env.TRACK }}
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          SHORT_SHA: ${{ github.sha }}
-        run: python3 scripts/notify-release-discord.py
-
-      # Only fires on the real-dispatch path (see the "Open release-approval
-      # request" step's own if condition -- if that step didn't run, its
-      # outcome is neither success nor failure). Separate from the notify
-      # step above so a real request never gets buried under a generic
-      # "preflight passed" message.
-      - name: Notify Discord — release requested
-        if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.preflight_only != true }}
-        continue-on-error: true
-        env:
-          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
-        run: |
-          curl -sf -X POST "$DISCORD_BUILD_WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -d "{\"content\": \"🔐 **Release requested**: ${{ matrix.route }} (${{ env.TRACK }}) by @${{ github.actor }} — needs approval from someone else in .github/CODEOWNERS before it ships. Nothing has been built or published yet.\"}"
+          version_code="$(node scripts/get-play-version-code.mjs "com.stuqet.${ROUTE}" "$TRACK")"
+          echo "Highest existing Play Console versionCode for com.stuqet.${ROUTE}: $version_code"
 
       - name: Notify Discord — failure
         if: failure()
@@ -405,23 +211,264 @@ jobs:
           DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
           NOTIFY_MODE: failure
           IS_PREFLIGHT: "true"
-          ROUTE: ${{ matrix.route }}
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          ROUTE: ${{ matrix.app.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          PR_URL: ""
           SHORT_SHA: ${{ github.sha }}
         run: python3 scripts/notify-release-discord.py
 
-      # A deliberately cancelled leg (e.g. superseded by a newer dispatch,
-      # or cancelled to save CI minutes) is not a failure -- treating it as
-      # one reads as "something broke" when nothing did.
+  # Only runs on a dispatch with preflight_only left unchecked, and only from
+  # the prod branch — needs: [preflight] already enforces this (that job fails
+  # loudly and stops here if dispatched from elsewhere); the ref check here is
+  # defence in depth against this job's condition being evaluated independently
+  # of that failure.
+  release:
+    name: "Release build — ${{ matrix.app.route }}"
+    needs: [preflight]
+    if: ${{ inputs.preflight_only != true && github.ref == 'refs/heads/prod' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    permissions:
+      # Checkout needs read access; artifact deletion needs actions write.
+      contents: read
+      actions: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(inputs.route == 'both' && '[{"route":"customer","key":"CUSTOMER"},{"route":"vendor","key":"VENDOR"}]' || inputs.route == 'vendor' && '[{"route":"vendor","key":"VENDOR"}]' || '[{"route":"customer","key":"CUSTOMER"}]') }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # A release AAB (expo prebuild --clean, R8, a JS bundle) needs far more
+      # headroom than a dev APK. The first release build to ever reach this
+      # point on a stock runner died with "No space left on device" at 3.6G
+      # remaining, so this fails fast below 12 GiB instead.
+      - name: Free runner disk space
+        env:
+          MIN_FREE_GB: "12"
+        run: bash scripts/ci-free-runner-disk.sh
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Cache npm dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+
+      - name: Install Android SDK Platform 36 & Build Tools
+        run: |
+          sdkmanager --install \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      # modules-2 + wrapper only. Caching all of ~/.gradle/caches also pulls in
+      # transforms/ and build-cache/, which are several GB, machine-specific,
+      # and the usual reason cache.tzst fills the disk.
+      - name: Cache Gradle dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-modules-${{ hashFiles('app.config.ts', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-modules-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Create production env file for native build
+        env:
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          EXPO_PUBLIC_SENTRY_DSN: ${{ secrets[format('EXPO_PUBLIC_SENTRY_DSN_{0}', matrix.app.key)] }}
+          SENTRY_PROJECT: ${{ secrets[format('SENTRY_PROJECT_{0}', matrix.app.key)] }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH: ${{ secrets.EXPO_PUBLIC_ENABLE_THEME_SWITCH }}
+          APP_KEY: ${{ matrix.app.key }}
+        run: |
+          cat > .env.prod <<EOF
+          EXPO_PUBLIC_API_BASE_URL=${EXPO_PUBLIC_API_BASE_URL}
+          EXPO_PUBLIC_SENTRY_DSN_${APP_KEY}=${EXPO_PUBLIC_SENTRY_DSN}
+          SENTRY_PROJECT_${APP_KEY}=${SENTRY_PROJECT}
+          SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
+          EXPO_PUBLIC_ENABLE_THEME_SWITCH=${EXPO_PUBLIC_ENABLE_THEME_SWITCH}
+          EOF
+
+      # Play's own history is the only durable record of which versionCode has
+      # shipped, so it — not a local counter — sets the floor for this build.
+      - name: Get current Play Store version code — ${{ matrix.app.route }}
+        env:
+          PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+          ROUTE: ${{ matrix.app.route }}
+          TRACK: ${{ inputs.track }}
+        run: |
+          version_code="$(node scripts/get-play-version-code.mjs "com.stuqet.${ROUTE}" "$TRACK")"
+          echo "Highest existing Play Console versionCode for com.stuqet.${ROUTE}: $version_code"
+          echo "PLAY_MAX_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
+
+      - name: Record runner resources
+        id: runner_resources
+        run: |
+          {
+            echo "cpu_cores=$(nproc)"
+            echo "memory_total=$(free -h | awk '/^Mem:/ {print $2}')"
+            echo "disk_available=$(df -h / | awk 'NR==2 {print $4}')"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build production AAB — ${{ matrix.app.route }}
+        id: build
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets[format('ANDROID_UPLOAD_KEYSTORE_BASE64_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets[format('ANDROID_UPLOAD_STORE_PASSWORD_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets[format('ANDROID_UPLOAD_KEY_ALIAS_{0}', matrix.app.key)] }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets[format('ANDROID_UPLOAD_KEY_PASSWORD_{0}', matrix.app.key)] }}
+          ROUTE: ${{ matrix.app.route }}
+        run: |
+          keystore_path="$RUNNER_TEMP/stuqet-${ROUTE}-upload-key.jks"
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+
+          ANDROID_UPLOAD_KEYSTORE_FILE="$keystore_path" \
+          /usr/bin/time -v -o build-time.txt node scripts/build-android.mjs "$ROUTE" aab
+
+          cat build-time.txt
+
+          elapsed="$(awk -F': ' '/Elapsed \(wall clock\) time/ {print $2}' build-time.txt)"
+          max_rss_kb="$(awk -F': ' '/Maximum resident set size/ {print $2}' build-time.txt)"
+          max_rss_mib="$(awk -v kb="$max_rss_kb" 'BEGIN {printf "%.0fMiB", kb / 1024}')"
+
+          {
+            echo "elapsed=${elapsed:-unavailable}"
+            echo "max_rss=${max_rss_mib:-unavailable}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Locate AAB output
+        id: aab
+        env:
+          ROUTE: ${{ matrix.app.route }}
+        run: |
+          aab_path="$(find local-builds/android -type f -name "stuqet-${ROUTE}-production-*.aab" | sort | tail -n 1)"
+
+          if [[ -z "$aab_path" ]]; then
+            echo "::error::Could not find the ${ROUTE} AAB output."
+            find local-builds/android -type f -name '*.aab' -print
+            exit 1
+          fi
+
+          echo "aab_path=$aab_path" >> "$GITHUB_OUTPUT"
+
+      # Kept briefly in case the Play publish step fails partway, so the exact
+      # bundle can be re-uploaded without a full rebuild. With skip_publish it
+      # is the whole point of the run, and is kept for the full retention.
+      - name: Upload AAB artifact to GitHub
+        id: upload_aab
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "stuqet-${{ matrix.app.route }}-${{ inputs.track }}-aab-${{ github.sha }}"
+          path: ${{ steps.aab.outputs.aab_path }}
+          retention-days: 7
+
+      - name: Publish to Google Play — ${{ matrix.app.route }} (${{ inputs.track }})
+        if: ${{ inputs.skip_publish != true }}
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_PUBLISHER_SERVICE_ACCOUNT_JSON }}
+          packageName: com.stuqet.${{ matrix.app.route }}
+          releaseFiles: ${{ steps.aab.outputs.aab_path }}
+          tracks: ${{ inputs.track }}
+          status: completed
+          whatsNewDirectory: docs/releases/${{ matrix.app.route }}/
+
+      # Only the production track feeds the in-app force-update check: an
+      # internal/alpha/beta build is not what store users install, so posting
+      # its number would prompt them to update to a build they cannot get.
+      # A no-op when APP_VERSION_PUBLISH_KEY is unset; see docs/dev.md.
+      - name: Publish build number to backend — ${{ matrix.app.route }}
+        if: ${{ inputs.skip_publish != true && inputs.track == 'production' }}
+        env:
+          APP_VERSION_PUBLISH_KEY: ${{ secrets.APP_VERSION_PUBLISH_KEY }}
+          EXPO_PUBLIC_API_BASE_URL: ${{ secrets.EXPO_PUBLIC_API_BASE_URL }}
+          ROUTE: ${{ matrix.app.route }}
+          VERSION_CODE: ${{ steps.build.outputs.version_code }}
+        run: node scripts/publish-app-version.mjs "$ROUTE" android "$VERSION_CODE"
+
+      - name: Delete AAB artifact after successful publish
+        if: ${{ inputs.skip_publish != true && steps.upload_aab.outputs.artifact-id != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/${{ steps.upload_aab.outputs.artifact-id }}" || true
+
+      # continue-on-error on all three: a Discord webhook hiccup must never be
+      # able to fail a release that already published. Each matrix leg posts
+      # its own result, so there is nothing to relay between jobs.
+      - name: Notify Discord — published
+        if: ${{ success() && inputs.skip_publish != true }}
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: success
+          IS_PREFLIGHT: "false"
+          ROUTE: ${{ matrix.app.route }}
+          TRACK: ${{ inputs.track }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          PR_URL: ""
+          SHORT_SHA: ${{ github.sha }}
+          ELAPSED: ${{ steps.build.outputs.elapsed }}
+          MAX_RSS: ${{ steps.build.outputs.max_rss }}
+          CPU_CORES: ${{ steps.runner_resources.outputs.cpu_cores }}
+          MEMORY_TOTAL: ${{ steps.runner_resources.outputs.memory_total }}
+          DISK_AVAILABLE: ${{ steps.runner_resources.outputs.disk_available }}
+        run: python3 scripts/notify-release-discord.py
+
+      - name: Notify Discord — failure
+        if: failure()
+        continue-on-error: true
+        env:
+          DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+          NOTIFY_MODE: failure
+          IS_PREFLIGHT: "false"
+          ROUTE: ${{ matrix.app.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          PR_URL: ""
+          SHORT_SHA: ${{ github.sha }}
+        run: python3 scripts/notify-release-discord.py
+
+      # A deliberately cancelled leg is not a failure — treating it as one
+      # reads as "something broke" when nothing did.
       - name: Notify Discord — cancelled
         if: cancelled()
         continue-on-error: true
         env:
           DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
           NOTIFY_MODE: cancelled
-          ROUTE: ${{ matrix.route }}
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          ROUTE: ${{ matrix.app.route }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          PR_URL: ""
           SHORT_SHA: ${{ github.sha }}
         run: python3 scripts/notify-release-discord.py
+
+      - name: Trim Gradle cache before post-job save
+        if: always()
+        continue-on-error: true
+        run: bash scripts/ci-trim-gradle-cache.sh

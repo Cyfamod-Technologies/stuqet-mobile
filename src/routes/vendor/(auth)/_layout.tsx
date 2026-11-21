@@ -1,23 +1,25 @@
 import { Stack } from "expo-router";
-import { ThemeToggle } from "~/components/theme-toggle";
-import { useThemeStore } from "~/lib/stores/theme-store";
-import { darkColors, lightColors } from "~/lib/colors";
 
+// Auth screens draw their own chrome (back button, blobs), so no native header.
+// Fingerprint login is a bottom sheet over the login form, so it is a
+// transparent modal that fades in.
 export default function AuthLayout() {
-  const theme = useThemeStore((s) => s.theme);
-  const palette = theme === "dark" ? darkColors : lightColors;
-
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        headerStyle: { backgroundColor: palette.authBackground },
-        headerShadowVisible: false,
-        headerTitle: () => null,
-        headerRight: () => <ThemeToggle />,
-        contentStyle: { backgroundColor: palette.authBackground },
-        animation: "slide_from_right",
+        headerShown: false,
+        contentStyle: { backgroundColor: "transparent" },
+        animation: "fade",
       }}
-    />
+    >
+      <Stack.Screen
+        name="fingerprint-login"
+        options={{
+          presentation: "transparentModal",
+          animation: "fade",
+          gestureEnabled: false,
+        }}
+      />
+    </Stack>
   );
 }

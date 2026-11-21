@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "src/routes/customer/**",
+    "src/features/customer-*/**",
+    "src/features/rider-*/**",
+    "src/features/auth/customer-hooks.ts",
+    "src/features/auth/screens/forgot-password-screen.tsx",
+    "src/features/auth/screens/login-screen.tsx",
+    "src/features/auth/screens/reset-password-screen.tsx",
+    "src/features/auth/screens/reset-success-screen.tsx",
+    "src/features/auth/screens/welcome-screen.tsx"
+  ]
+}

@@ -74,7 +74,7 @@ export function Screen({
   if (!scroll) {
     return (
       <View
-        className={cn("flex-1 bg-background", className)}
+        className={cn("flex-1 bg-transparent", className)}
         style={[{ flex: 1 }, defaultContentStyle, contentContainerStyle]}
       >
         {children}
@@ -84,7 +84,7 @@ export function Screen({
 
   return (
     <RNScrollView
-      className={cn("flex-1 bg-background", className)}
+      className={cn("flex-1 bg-transparent", className)}
       contentContainerStyle={[defaultContentStyle, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
       {...rest}

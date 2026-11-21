@@ -18,27 +18,25 @@ repo.
 
 ## Branch model
 
-| Branch           | Role                                                                                                    |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| Feature branches | Short-lived branches for a ticket (`feature/…`, `fix/…`). Branch from `dev`, PR back into `dev`.        |
-| **`dev`**        | Integration line. PRs here run CI; pushes build and distribute preview APKs (see GitHub Actions below). |
-| **`main`**       | **Preview** line. Merging here runs the **preview** pipeline. Protected — changes via PR.               |
-| **`prod`**       | **Production** line. Promoting here runs the **production** pipeline. Protected — changes via PR.       |
-| `release-gate`   | Static branch that release-request PRs target. Never developed on. See the release workflows below.     |
+| Branch           | Role                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Feature branches | Short-lived branches for a ticket (`feature/…`, `fix/…`). Branch from `main`, PR back into `main`.                                |
+| **`main`**       | **Preview** line. PRs here run CI; merging runs the **preview** pipeline and builds preview APKs. Protected — changes via PR.     |
+| **`prod`**       | **Production** line. Only ever receives `main` (`prod-pr-guard.yml`). Promoting here runs the **production** pipeline. Protected. |
 
 `main` and `prod` stay protected so release history stays reviewable and
 deployments stay predictable.
 
 ## End-to-end workflow
 
-1. **Branch from `dev`** — sync `dev`, then create a feature branch.
+1. **Branch from `main`** — sync `main`, then create a feature branch.
 2. **Develop and test locally** — run `npm run dev:customer` or
    `npm run dev:vendor` and use the development client (not Expo Go).
-3. **Open a PR into `dev`** — GitHub Actions CI (`.github/workflows/ci.yml`)
-   runs format check, lint, type-check, and build. These are route-agnostic —
+3. **Open a PR into `main`** — GitHub Actions CI (`.github/workflows/ci.yml`)
+   runs format check, lint, type-check, and audit, and the secret scan
+   (`security.yml`) runs alongside it. These are route-agnostic —
    one `tsconfig`/`eslint` pass covers `src/routes/customer` and
-   `src/routes/vendor` — and `npm run build` exports both apps, so a
-   route-specific bundling problem fails CI. Get review + green CI, then merge.
+   `src/routes/vendor`. Get review + green CI, then merge.
    - **What else runs:** the merge (a push to `main`) triggers the EAS Workflow
      **Deploy to preview** (`.eas/workflows/publish-preview-update.yml`). It
      fingerprints the project, reuses an existing native build when the
@@ -46,7 +44,9 @@ deployments stay predictable.
      publishes an OTA update to the **`preview`** branch when a matching build
      exists.
 4. **Promote to production** — when preview is validated, open a PR from `main` →
-   **`prod`** and merge after review.
+   **`prod`** and merge after review. The only check on that PR is
+   `prod-pr-guard.yml` (it must come from `main`): the code already passed CI
+   and the secret scan on its way into `main`, so they are not run again.
    - **What runs:** the push to `prod` triggers **Deploy to production**
      (`.eas/workflows/deploy-to-production.yml`). Same fingerprint /
      get-build / build-or-update pattern using the **`production`** profile, OTA
@@ -78,47 +78,56 @@ So the operational rule is: **merging into `main` runs preview; merging into
 
 ## GitHub Actions workflows
 
-Android builds, releases and housekeeping run on GitHub Actions
-(`.github/workflows/`). They build **Stuqet Customer** and **Stuqet Vendor**
-separately, using `scripts/build-android.mjs` (see
-[local-builds.md](./local-builds.md)).
+Android builds, releases and checks run on GitHub Actions
+(`.github/workflows/`), all on GitHub-hosted `ubuntu-latest` runners. They build
+**Stuqet Customer** and **Stuqet Vendor** separately, using
+`scripts/build-android.mjs` (see [local-builds.md](./local-builds.md)).
 
-| Workflow                           | Trigger                              | What it does                                                                                                                                                                                            |
-| ---------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`                           | Push to `dev`; PRs into `dev`/`main` | Format check, lint, type-check, build, a guard that keeps the publish workflow callable only from the approval workflow, and a non-blocking audit. Manual run builds a test APK/AAB for the chosen app. |
-| `dev-android-apk-distribution.yml` | Push to `dev` (code paths); manual   | Builds both apps' preview APKs, uploads them to S3 and posts download links to Discord. A manual run can re-announce already-uploaded APKs without rebuilding.                                          |
-| `release-android.yml`              | PRs touching it; manual              | **Release 1 — Request.** PRs run a preflight only (secrets, signing, Play track). A manual run opens a release-request PR into `release-gate`; it never publishes by itself.                            |
-| `handle-release-approval.yml`      | A PR review on a release-request PR  | **Release 2 — Approve & publish.** Checks the reviewer is an authorised approver and is not the requester, then calls the publish workflow.                                                             |
-| `_publish-android.yml`             | `workflow_call` only                 | **Release 3 — Publish.** Builds the signed AAB, uploads it to the Play track, posts to Discord and publishes the build number. It has no other trigger on purpose.                                      |
-| `release-gate-merge-notice.yml`    | Merge of a release-request PR        | Comments that merging published nothing (approval does).                                                                                                                                                |
-| `security.yml`                     | Push/PR to `dev`/`main`; weekly      | Gitleaks secret scan.                                                                                                                                                                                   |
-| `cleanup-*.yml`                    | Schedules; PR close                  | Delete stale Actions caches and clear the self-hosted runner's disk.                                                                                                                                    |
+| Workflow                           | Trigger                                 | What it does                                                                                                                                                                                                                                      |
+| ---------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                           | Push to `main`; PRs into `main`; manual | Format check, lint, type-check and a non-blocking audit. A manual run builds a test **APK** for the chosen app from any branch.                                                                                                                   |
+| `security.yml`                     | Push/PR to `main`; weekly               | Gitleaks secret scan.                                                                                                                                                                                                                             |
+| `prod-pr-guard.yml`                | PRs into `prod`                         | Fails unless the PR comes from `main` in this repository. Seconds long; it does not re-run CI.                                                                                                                                                    |
+| `dev-android-apk-distribution.yml` | Push to `main` (code paths); manual     | Builds both apps' preview APKs, uploads them to S3 and posts download links to Discord. A manual run can re-announce already-uploaded APKs without rebuilding.                                                                                    |
+| `release-android.yml`              | Manual, from `prod`                     | Preflight (secrets, signing, Play auth), then builds the signed **AAB** and publishes it to the chosen Play track for `customer`, `vendor` or `both`. `preflight_only` validates only; `skip_publish` builds the AAB and keeps it as an artifact. |
+| `release-ios.yml`                  | Manual, from `prod`                     | Preflight (EAS auth, App Store Connect app id), then an EAS iOS build, uploaded to App Store Connect/TestFlight unless `skip_submit` is checked.                                                                                                  |
 
-The release path is a two-person gate: the person who requests a release cannot
-approve it, and the approver must be on the hard-coded list in
-`handle-release-approval.yml`. **That list ships empty**, so no release can be
-published until it is filled in (see [setup.md](./setup.md#github-actions-secrets-and-variables)).
+Checks that run on PRs into `main` are deliberately **not** repeated on PRs into
+`prod` or on the push to `prod`: only `main` can open a PR into `prod`, so that
+code has already been checked.
+
+A real release (anything but `preflight_only`) can only be dispatched with
+**`prod`** selected as the branch; the preflight step fails loudly otherwise.
+There is no request/approval step — whoever dispatches the workflow is the one
+releasing — so protect `prod` and limit who can run workflows in the
+repository settings.
+
+To ship an Android release: merge `main` → `prod`, then run **Release — Build &
+Publish Android** on `prod`, pick the app and the Play track, and leave the
+boxes unchecked. Run it once with `preflight_only` first if credentials or
+signing keys changed.
 
 ## One-time repository setup
 
 The workflows assume:
 
-- A `dev` branch (integration) and a `release-gate` branch (a static branch that
-  release-request PRs target). Neither exists until you create it. Feature PRs
-  go to `dev`; `dev` is promoted to `main`, and `main` to `prod`.
+- A `main` branch and a `prod` branch. Feature PRs go to `main`; `main` is
+  promoted to `prod`. In `prod`'s branch protection, mark the
+  **Only main may target prod** check (`prod-pr-guard.yml`) as required, so the
+  guard is a real gate and not just a red X.
 - The secrets and variables listed in
   [setup.md](./setup.md#github-actions-secrets-and-variables).
-- `RUNNER_OS` set as a repository variable only if you use a self-hosted runner;
-  otherwise the workflows use `ubuntu-latest`.
-- `.github/CODEOWNERS` filled in, and the approver list in
-  `handle-release-approval.yml` filled in.
-- The repository path in `handle-release-approval.yml`'s `uses:` line matches the
-  real repository (GitHub does not allow a variable there).
+- For iOS releases: `eas.json` → `submit.production-customer.ios.ascAppId` and
+  `submit.production-vendor.ios.ascAppId` set to each app's App Store Connect
+  app id, and the build-time values (`EXPO_PUBLIC_API_BASE_URL`, the Sentry
+  values) present on the EAS project's `production` environment — nothing set
+  on the GitHub runner reaches the EAS build worker.
 
 ## Publishing the build number for force-update
 
-The release workflow can publish the shipped `versionCode` to the backend after
-Google Play accepts the build, so an in-app force-update check can tell whether
+The Android release workflow publishes the shipped `versionCode` to the backend
+after Google Play accepts a build **on the `production` track** (internal, alpha
+and beta builds are not what store users install, so they are skipped), so an in-app force-update check can tell whether
 an installed binary is behind. It runs `scripts/publish-app-version.mjs`, which
 posts `{ app, platform, build }` to `POST <EXPO_PUBLIC_API_BASE_URL>/app-version`
 with the shared key in `X-App-Version-Key`.
@@ -135,9 +144,9 @@ endpoint for it — match on the path, or on the `stuqet-release-bot/1.0`
 user agent the script sends — and skip bot protection for that endpoint. It is
 already guarded by the shared key.
 
-iOS is not automated: there is no iOS release workflow, so an iOS build number
-has to be posted by hand after each App Store release, with `"app"` set to
-`customer` or `vendor`.
+`release-ios.yml` does not post a build number, so an iOS build number has to be
+posted by hand after each App Store release, with `"app"` set to `customer` or
+`vendor`.
 
 ## Distribution notes
 
@@ -158,13 +167,15 @@ secrets** (referenced as `${{ env.SECRET_NAME }}` in workflows), GitHub
 
 - `.eas/workflows/publish-preview-update.yml` — preview pipeline (push to `main`).
 - `.eas/workflows/deploy-to-production.yml` — production pipeline (push to `prod`).
-- `.github/workflows/ci.yml` — PR checks (format, lint, typecheck, build).
-- `.github/workflows/release-android.yml`, `handle-release-approval.yml`,
-  `_publish-android.yml` — the three-step Play Store release flow.
+- `.github/workflows/ci.yml`, `security.yml` — PR checks (format, lint, typecheck,
+  secret scan) for PRs into `main`.
+- `.github/workflows/prod-pr-guard.yml` — only `main` may open a PR into `prod`.
+- `.github/workflows/release-android.yml`, `release-ios.yml` — manual store
+  releases, from `prod`.
 - `.github/workflows/dev-android-apk-distribution.yml` — preview APKs to S3 and
-  Discord on pushes to `dev`.
-- `scripts/` — local build runner, Play version lookup, build-number publish and
-  Discord notification scripts. See [local-builds.md](./local-builds.md).
+  Discord on pushes to `main`.
+- `scripts/` — local build runner, Play version lookup, build-number publish,
+  Discord notification and CI runner-disk helper scripts. See [local-builds.md](./local-builds.md).
 - `docs/releases/` — release records, one folder per app.
 - `eas.json` — build/submit profile names and channels referenced by the
   workflows.

@@ -1,4 +1,4 @@
-import axiosInstance from "~/lib/config/axios";
+import { axiosInstance } from "~/lib/config/axios";
 import type { AppVersionConfig } from "./types";
 
 class AppVersionService {
@@ -14,7 +14,7 @@ class AppVersionService {
       const { data } =
         await axiosInstance.get<AppVersionConfig>("/get-app-version");
       return data ?? null;
-    } catch (error: any) {
+    } catch {
       // 404 = endpoint not wired up yet; anything else = network / server error.
       // Either way, fail open so the app is never blocked by this check.
       return null;

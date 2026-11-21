@@ -1,5 +1,5 @@
-import axios from "axios";
-import axiosRetry from "axios-retry";
+import axios, { AxiosError, type AxiosInstance } from "axios";
+import axiosRetry, { exponentialDelay, isNetworkError } from "axios-retry";
 import { getToken, deleteToken } from "~/lib/secure-storage";
 import { router } from "expo-router";
 import { logger } from "~/lib/utils/logger";
@@ -11,13 +11,21 @@ import {
 } from "~/lib/debug-store";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const SYSTEM_KEY = process.env.EXPO_PUBLIC_SYSTEM_KEY;
 
 function createAxiosInstance() {
+  // `axios.create` is the documented API; the named `create` export is not.
+  // eslint-disable-next-line import/no-named-as-default-member
   return axios.create({
     baseURL: BASE_URL,
     timeout: 45000,
     headers: {
-      common: { Accept: "application/json" },
+      common: {
+        Accept: "application/json",
+        // The backend rejects every request without this key (HTTP 200
+        // "Request not found!"), so both instances send it.
+        ...(SYSTEM_KEY ? { "System-Key": SYSTEM_KEY } : {}),
+      },
       post: { "Content-Type": "application/json" },
     },
   });
@@ -25,6 +33,51 @@ function createAxiosInstance() {
 
 export const axiosInstance = createAxiosInstance();
 export const axiosPrivate = createAxiosInstance();
+
+// The Stuqet API reports many business-rule failures as HTTP 200 with
+// `{ result: false, message }` (wrong password, package limit, "not yours"…).
+// Turn those into rejected requests so every caller's onError path runs.
+function rejectWhenResultFalse(instance: AxiosInstance) {
+  instance.interceptors.response.use((response) => {
+    const data = response.data as
+      { result?: boolean; message?: unknown } | undefined;
+    if (data && typeof data === "object" && data.result === false) {
+      const message = Array.isArray(data.message)
+        ? data.message.join(" ")
+        : typeof data.message === "string"
+          ? data.message
+          : "Request failed";
+      response.status = 400;
+      throw new AxiosError(
+        message,
+        AxiosError.ERR_BAD_REQUEST,
+        response.config,
+        response.request,
+        response,
+      );
+    }
+    return response;
+  });
+}
+
+rejectWhenResultFalse(axiosInstance);
+rejectWhenResultFalse(axiosPrivate);
+
+// Demo mode: answer every request from the bundled sample data, the vendor
+// data in the vendor app and the customer + rider data in the customer app.
+// The literal env check lets Metro drop src/demo from release builds.
+if (process.env.EXPO_PUBLIC_DEMO_MODE === "true") {
+  if (process.env.EXPO_PUBLIC_ROUTE === "vendor") {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { installDemoAdapter } = require("~/demo") as typeof import("~/demo");
+    installDemoAdapter([axiosInstance, axiosPrivate]);
+  } else {
+    const { installCustomerDemoAdapter } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("~/demo/customer") as typeof import("~/demo/customer");
+    installCustomerDemoAdapter([axiosInstance, axiosPrivate]);
+  }
+}
 
 async function logout() {
   await deleteToken();
@@ -75,24 +128,44 @@ axiosPrivate.interceptors.response.use(
   },
 );
 
+// Customer + rider app: any 401 means the Sanctum token is gone (revoked,
+// expired, or "Expire my session" in demo mode), so go back to the login screen.
+// The vendor app has its own "Session expired" screen (features/auth/session-expiry.ts).
+if (process.env.EXPO_PUBLIC_ROUTE !== "vendor") {
+  let leaving = false;
+  axiosPrivate.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      if (error?.response?.status === 401 && !leaving) {
+        leaving = true;
+        await logout();
+        setTimeout(() => {
+          leaving = false;
+        }, 2000);
+      }
+      return Promise.reject(error);
+    },
+  );
+}
+
 axiosRetry(axiosPrivate, {
   retries: 2,
-  retryDelay: axiosRetry.exponentialDelay,
+  retryDelay: exponentialDelay,
   shouldResetTimeout: true,
   retryCondition: (error) => {
     const status = error.response?.status ?? 0;
     if (status === 401 || (status >= 400 && status < 500)) return false;
-    return axiosRetry.isNetworkError(error) || (status >= 500 && status <= 599);
+    return isNetworkError(error) || (status >= 500 && status <= 599);
   },
 });
 
 axiosRetry(axiosInstance, {
   retries: 2,
-  retryDelay: axiosRetry.exponentialDelay,
+  retryDelay: exponentialDelay,
   shouldResetTimeout: true,
   retryCondition: (error) => {
     const status = error.response?.status ?? 0;
-    return axiosRetry.isNetworkError(error) || (status >= 500 && status <= 599);
+    return isNetworkError(error) || (status >= 500 && status <= 599);
   },
 });
 

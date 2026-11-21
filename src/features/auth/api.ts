@@ -1,43 +1,79 @@
 import { axiosInstance, axiosPrivate } from "~/lib/config/axios";
-import type { Token, LoginDTO, User } from "./types";
+import { isVendorApp } from "~/lib/config/features";
+import { normalizePhone } from "./schemas";
+import type {
+  ForgotPasswordDTO,
+  LoginDTO,
+  LoginResponse,
+  ResetPasswordDTO,
+  Token,
+  User,
+} from "./types";
 
-// TODO: Align these endpoints with your backend's auth API.
+// Endpoints are relative to the /api/v2 root (backend: routes/api.php,
+// `v2/auth` group, AuthController + PasswordResetController).
+const resolveIdentifier = (data: ForgotPasswordDTO) =>
+  data.method === "phone" ? normalizePhone(data.identifier) : data.identifier;
+
 const AuthService = {
+  // POST /auth/login — `user_type` picks which account table is searched
+  // (sellers for the vendor app, customers for the customer app). Failures are
+  // HTTP 401 `{ result: false, message }`: "User not found", "Unauthorized"
+  // (wrong password), "User is banned", and for sellers "Your seller account
+  // is under review. We will notify you once approved.".
   login: async (data: LoginDTO): Promise<Token> => {
-    const { data: response } = await axiosInstance.post<{ data: Token }>(
-      "/auth/signin",
-      data,
+    const method = data.method ?? "email";
+    const { data: response } = await axiosInstance.post<LoginResponse>(
+      "/auth/login",
+      {
+        login_by: method,
+        // The API reads the phone number from the `email` field too.
+        email: method === "phone" ? normalizePhone(data.email) : data.email,
+        password: data.password,
+        user_type: data.userType ?? (isVendorApp ? "seller" : "customer"),
+      },
     );
-    return response.data;
+    return { access: response.access_token, userType: response.user?.type };
   },
 
-  logout: async (data: { token: string }): Promise<void> => {
-    await axiosPrivate.post("/auth/logout", data);
+  logout: async (_data: { token: string }): Promise<void> => {
+    await axiosPrivate.get("/auth/logout");
   },
 
-  forgotPassword: async (data: { email: string }) => {
+  // POST /auth/password/forget_request — emails (or texts) a 6-digit code.
+  // 404 "User is not found" when no account matches. Note: the endpoint is not
+  // scoped to a user type, so it also accepts customer accounts.
+  forgotPassword: async (data: ForgotPasswordDTO) => {
     const { data: response } = await axiosInstance.post(
-      "/auth/forgot-password",
-      data,
+      "/auth/password/forget_request",
+      { send_code_by: data.method, email_or_phone: resolveIdentifier(data) },
     );
     return response;
   },
 
-  resetPassword: async (data: {
-    otp: string;
-    password: string;
-    rePassword: string;
-  }) => {
+  // POST /auth/password/resend_code
+  resendResetCode: async (data: ForgotPasswordDTO) => {
     const { data: response } = await axiosInstance.post(
-      "/auth/confirm-password",
-      data,
+      "/auth/password/resend_code",
+      { verify_by: data.method, email_or_phone: resolveIdentifier(data) },
     );
     return response;
   },
 
+  // POST /auth/password/confirm_reset — the account is found by the code alone
+  // (HTTP 200 `{ result: false, message: "No user is found" }` when wrong).
+  resetPassword: async (data: ResetPasswordDTO) => {
+    const { data: response } = await axiosInstance.post(
+      "/auth/password/confirm_reset",
+      { verification_code: data.code, password: data.password },
+    );
+    return response;
+  },
+
+  // GET /auth/user — the authenticated user row.
   getProfile: async (): Promise<User> => {
-    const { data: response } = await axiosPrivate.get<User>("/auth/me");
-    return response;
+    const { data: response } = await axiosPrivate.get<User>("/auth/user");
+    return { ...response, full_name: response.name };
   },
 };
 

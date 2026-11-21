@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "src/routes/vendor/**",
+    "src/features/seller-*/**",
+    "src/features/auth/session-expiry.ts",
+    "src/features/auth/vendor-hooks.ts",
+    "src/features/auth/screens/check-inbox-screen.tsx",
+    "src/features/auth/screens/enable-fingerprint-screen.tsx",
+    "src/features/auth/screens/fingerprint-login-screen.tsx",
+    "src/features/auth/screens/session-expired-screen.tsx",
+    "src/features/auth/screens/under-review-screen.tsx",
+    "src/features/auth/screens/vendor-*.tsx"
+  ]
+}

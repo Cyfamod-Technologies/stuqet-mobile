@@ -199,8 +199,8 @@ export const DebugOverlay = () => {
         .activeOffsetY([-8, 8])
         .onChange((e) => {
           "worklet";
-          tx.value += e.changeX;
-          ty.value += e.changeY;
+          tx.set(tx.get() + e.changeX);
+          ty.set(ty.get() + e.changeY);
         })
         .onEnd(() => {
           "worklet";
@@ -221,7 +221,7 @@ export const DebugOverlay = () => {
                   fabW.value
                 )
               : 0;
-          tx.value = withSpring(targetTx, SPRING_CONFIG);
+          tx.set(withSpring(targetTx, SPRING_CONFIG));
 
           // Clamp vertically inside the safe area.
           const baseBottomY = screenH - FAB_BOTTOM_OFFSET - insets.bottom;
@@ -232,7 +232,7 @@ export const DebugOverlay = () => {
           if (fabTop < minTop) targetTy = ty.value + (minTop - fabTop);
           else if (fabTop > maxTop) targetTy = ty.value - (fabTop - maxTop);
           if (targetTy !== ty.value) {
-            ty.value = withSpring(targetTy, SPRING_CONFIG);
+            ty.set(withSpring(targetTy, SPRING_CONFIG));
           }
         }),
     [

@@ -46,9 +46,10 @@ Build Tools of at least API 36 before starting. Newer installs satisfy it, so
 an extension release such as `android-36.1` is accepted. Gradle may install additional compatible native dependencies,
 such as the NDK or CMake, on the first build.
 
-The JDK range is not a preference. Gradle 8.14.3, which the Expo Android
-template pins, cannot run on a JVM newer than Java 24, and 17 is the version
-React Native 0.81 targets. Nothing needs to be exported: the script picks a
+The JDK range is not a preference. The Gradle version the Expo Android
+template pins (9.4.1 as of SDK 58) bounds the newest JVM it can run on, so the
+script keeps its upper limit at Java 24 until a newer JDK has been verified with
+a local build. 17 is the version React Native 0.88 targets. Nothing needs to be exported: the script picks a
 supported JDK on its own, preferring `JAVA_HOME` when it points at one.
 
 The first build is slower because Gradle, native dependencies, and Metro caches

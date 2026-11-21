@@ -4,6 +4,8 @@ declare namespace NodeJS {
      * `app.config.ts` and `metro.config.js`; defaults to "customer". */
     readonly EXPO_PUBLIC_ROUTE?: "customer" | "vendor";
     readonly EXPO_PUBLIC_API_BASE_URL: string;
+    /** Sent as the `System-Key` header on every API request. */
+    readonly EXPO_PUBLIC_SYSTEM_KEY?: string;
     /** Single shared Sentry DSN. Superseded by the per-app DSNs below when set;
      * those are read in `app.config.ts` (not in app code) and passed through
      * to the bundle as `expoConfig.extra.sentryDsn`. */
@@ -11,6 +13,17 @@ declare namespace NodeJS {
     readonly EXPO_PUBLIC_SENTRY_DSN_CUSTOMER?: string;
     readonly EXPO_PUBLIC_SENTRY_DSN_VENDOR?: string;
     readonly EXPO_PUBLIC_ENABLE_THEME_SWITCH?: string;
+    readonly EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN?: string;
+    readonly EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS?: string;
+    readonly EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE?: string;
+    /** "true" runs the app on bundled sample data, no API (src/demo, src/demo/customer). */
+    readonly EXPO_PUBLIC_DEMO_MODE?: string;
+    /** Vendor app: web page where a seller registers a shop (the backend has
+     * no seller registration API, so "Create a shop" opens this in the
+     * browser). Falls back to `<api origin>/shop/registration/verification`. */
+    readonly EXPO_PUBLIC_WEB_REGISTRATION_URL?: string;
+    /** Vendor app: support address used by "Contact support" (mailto:). */
+    readonly EXPO_PUBLIC_SUPPORT_EMAIL?: string;
     /** Build-time only — source map upload. Never inlined into the bundle. */
     readonly SENTRY_ORG?: string;
     readonly SENTRY_PROJECT_CUSTOMER?: string;

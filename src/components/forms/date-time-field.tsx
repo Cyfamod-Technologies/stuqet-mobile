@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { parseISO, format } from "date-fns";
-import { Platform } from "react-native";
+import { Platform, View, Text, Pressable } from "react-native";
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
-import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "~/lib/colors";
 import { useThemeStore } from "~/lib/stores/theme-store";

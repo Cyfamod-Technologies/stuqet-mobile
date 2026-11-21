@@ -1,8 +1,8 @@
 # Architecture
 
-Stuqet is an Expo React Native codebase (Expo SDK 54, Expo Router 6, React 19,
-React Native 0.81) written in TypeScript. The new architecture is enabled
-(`newArchEnabled: true`) and the React Compiler experiment is on. UI is styled
+Stuqet is an Expo React Native codebase (Expo SDK 58, Expo Router 58, React 19,
+React Native 0.88) written in TypeScript. The New Architecture is always on
+(it cannot be disabled since SDK 55) and the React Compiler experiment is on. UI is styled
 with NativeWind (Tailwind for React Native), server state is handled with
 TanStack Query, HTTP with Axios, light client state with Zustand, and forms with
 React Hook Form + Zod. Crash/perf reporting uses Sentry and over-the-air updates
@@ -10,12 +10,14 @@ use Expo Updates.
 
 ## Routing
 
-Routing is file-based via **Expo Router 6** (`main: "expo-router/entry"`).
+Routing is file-based via **Expo Router 58** (`main: "expo-router/entry"`).
 Typed routes are enabled (`experiments.typedRoutes`).
 
 ### Two apps, one codebase
 
 One project builds 2 apps: **customer** (customers and riders) and **vendor**.
+The customer app sells **food only**; product e-commerce is the website
+(see the stuqet-docs `platform-scope.md`).
 Each has its own self-contained route tree — `src/routes/customer` and
 `src/routes/vendor` — while components, hooks, features, `lib`, providers, theme
 and styles are shared by both.
@@ -36,15 +38,48 @@ a build targets:
 
 Each route tree has the same shape:
 
-- `index.tsx` — splash/landing screen; redirects to `(tabs)` when a token is
-  present, otherwise shows a "Get started" CTA into `(auth)/login`.
-- `(auth)/` — unauthenticated screens: `login`, `forgot-password`,
-  `reset-password`, with their own `_layout.tsx`.
-- `(tabs)/` — authenticated tab navigator (`_layout.tsx`) with two tabs:
-  - `index` — Home
-  - `more/` — nested stack: `index`, `settings`
+- `index.tsx` — splash/landing screen; redirects to Home when a token is
+  present, otherwise shows a "Get started" CTA (the customer app continues to
+  the intro slides, the vendor app to its welcome screen).
+- `(auth)/` — unauthenticated screens with their own `_layout.tsx`. Vendor:
+  `login`, `forgot-password`, `reset-password` and the status screens.
+  Customer: `intro`, `welcome`, `create-account`, `role`, `terms`, `privacy`,
+  `login`, `forgot-password`, `reset-password`, `reset-success`.
+- `(tabs)/` — authenticated tab navigator (`_layout.tsx`). Each tab is a folder
+  with its own stack (`_layout.tsx` = `PlainStack`); pushed screens hide the tab
+  bar.
 
 Add each app's own tabs and nested stacks to its route tree as it grows.
+
+### Customer app: one app, two roles
+
+The customer app serves **customers** and **riders**. `useRoleStore`
+(`src/lib/stores/role-store.ts`, persisted) holds the open side and is set from
+the account type at sign-in (`customer` or `delivery_boy`), by the role picker
+and by Profile > "Switch to ordering food" / "Become a rider".
+
+- Tabs: customers get Home, Search, Orders, Profile; riders get Home,
+  Deliveries, Earnings, Profile. All six folders exist; the tab bar hides the
+  ones that do not apply (`href: null`). Home and Profile pick their content by
+  role.
+- Restaurant, dish, cart, checkout, address, order-placed, tracking, chat and
+  notification screens exist once per tab stack as one-line re-exports of the
+  same screen, so a push stays in the tab it started in and Back returns there.
+  `useFoodNav()` (`customer-food/navigation.ts`) builds those paths.
+- `setup/` (school, food types, address, notifications, fingerprint, all set)
+  and `rider-setup/` (profile, vehicle, documents, payout, review) are plain
+  stacks outside the tabs for onboarding.
+- Features: `customer-onboarding`, `customer-food`, `customer-cart`,
+  `customer-orders`, `customer-account`, `rider-onboarding`, `rider-deliveries`,
+  `rider-account`. The customer food endpoints (`/food/*`) and the rider
+  application routes are proposals; each `api.ts` lists them as `TODO(backend)`.
+
+### Demo mode
+
+`EXPO_PUBLIC_DEMO_MODE="true"` swaps the axios adapter for an in-memory API:
+`src/demo` for the vendor build and `src/demo/customer` + `src/demo/rider` for
+the customer build (see `src/demo/README.md` and `src/demo/customer/README.md`).
+`src/demo/flag.ts` is the only file feature code imports at module level.
 
 ## Root layout (`src/routes/<route>/_layout.tsx`)
 
@@ -52,14 +87,15 @@ Each app's root layout is its composition root. It:
 
 - Imports the global NativeWind stylesheet (`./global.css`).
 - Initializes Sentry (`initSentry()`) at module load.
-- Calls `SplashScreen.preventAutoHideAsync()` and loads the **DM Sans** fonts
+- Calls `SplashScreen.preventAutoHideAsync()` and loads the **Urbanist** fonts
   via `useFonts`; once fonts are ready (or error), it hides the splash screen.
 - Wraps the tree in `SafeAreaProvider`, then `GestureHandlerRootView`, then
   `TanstackQueryProvider`.
 - Hydrates the persisted theme (`useThemeStore`) and applies the theme's CSS
   variables to a root `View` (`darkThemeVars` / `lightThemeVars`).
 - Renders the router `<Slot />` alongside cross-cutting UI: `OfflineBanner`,
-  `ForceUpdateModal`, `OTAUpdateHandler`, and the `DebugOverlay` (when enabled).
+  `ForceUpdateModal`, `OTAUpdateHandler`, the `DebugOverlay` (when enabled) and,
+  last so it sits on top, the `ToastHost`.
 
 ## State & data architecture
 
@@ -130,6 +166,8 @@ NativeWind CSS variables:
 - `src/lib/stores/theme-store.ts` — Zustand store that persists the chosen theme
   to AsyncStorage (`app_theme`), updates `Appearance`, and exposes `hydrate()`.
 
+The visual language (typography, tokens, components) is documented in [DESIGN.md](./DESIGN.md).
+
 Prefer NativeWind class names for styling; use `useThemeColors()` only when a
 component needs a runtime color value (e.g. an icon `color` prop).
 
@@ -149,6 +187,12 @@ component needs a runtime color value (e.g. an icon `color` prop).
   wire up the `/get-app-version` endpoint and set your store URLs.
 - **Offline banner** — `OfflineBanner` surfaces connectivity loss via
   `@react-native-community/netinfo`.
+- **In-app notifications** — `notifySuccess` / `notifyError` / `notifyInfo` /
+  `notifyWarning` (`src/lib/utils/toast.ts`) push into a module-level Zustand
+  store (`src/lib/stores/toast-store.ts`), so axios interceptors and mutation
+  callbacks can use them without a hook; `ToastHost` renders them. Blocking
+  choices stay native `Alert.alert`. See "Notifications (toasts)" in
+  [DESIGN.md](./DESIGN.md).
 
 See [folder-structure.md](./folder-structure.md) for the full layout,
 [code-style.md](./code-style.md) for conventions, and [dev.md](./dev.md) for the

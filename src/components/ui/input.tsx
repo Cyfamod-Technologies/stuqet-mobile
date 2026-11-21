@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
   Platform,
@@ -6,20 +7,27 @@ import {
   Text,
   type TextInputProps,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { cn } from "~/lib/utils/helpers";
-import { colors } from "~/lib/colors";
+import { SHADOWS, useThemeColors } from "~/lib/colors";
+
+// Design-system field: white surface, 1px border, 14px radius, 52px tall, soft
+// shadow. Focus swaps the border to the brand orange (1.5px); error to
+// destructive-text (1.5px). Locked fields use the soft fill and no shadow.
+const FIELD_BOX = "rounded-field border border-border bg-field";
 
 /** Box styles shared with non-Input rows (e.g. SwitchRow). */
 export const inputVariants = cva(
-  "rounded-3xl px-5 py-3 text-base text-foreground placeholder:text-muted-foreground",
+  "px-4 py-3 font-sans-medium text-base text-foreground",
   {
     variants: {
       variant: {
-        default: "border border-border bg-input",
-        ghost: "border border-transparent bg-muted/30",
+        default: FIELD_BOX,
+        ghost: "rounded-field border border-transparent bg-muted",
         underline:
           "rounded-none border-0 border-b border-border bg-transparent px-0 py-3",
-        auth: "border border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400",
+        // Deprecated alias — the default field already is the auth field.
+        auth: FIELD_BOX,
       },
     },
     defaultVariants: {
@@ -28,18 +36,18 @@ export const inputVariants = cva(
   },
 );
 
-const inputContainerVariants = cva("flex-row rounded-3xl border px-5", {
+const inputContainerVariants = cva("flex-row border px-4", {
   variants: {
     variant: {
-      default: "border-border bg-input",
-      ghost: "border-transparent bg-muted/30",
+      default: "rounded-field border-border bg-field",
+      ghost: "rounded-field border-transparent bg-muted",
       underline:
         "rounded-none border-0 border-b border-border bg-transparent px-0",
-      auth: "border-zinc-200 bg-white",
+      auth: "rounded-field border-border bg-field",
     },
     multiline: {
       true: "items-start py-3",
-      false: "min-h-12 items-center",
+      false: "min-h-field items-center",
     },
   },
   defaultVariants: {
@@ -48,19 +56,22 @@ const inputContainerVariants = cva("flex-row rounded-3xl border px-5", {
   },
 });
 
-const inputTextVariants = cva("flex-1 py-0 text-base text-foreground", {
-  variants: {
-    variant: {
-      default: "placeholder:text-muted-foreground",
-      ghost: "placeholder:text-muted-foreground",
-      underline: "px-0 placeholder:text-muted-foreground",
-      auth: "text-zinc-900 placeholder:text-zinc-400",
+const inputTextVariants = cva(
+  "flex-1 py-0 font-sans-medium text-base text-foreground",
+  {
+    variants: {
+      variant: {
+        default: "",
+        ghost: "",
+        underline: "px-0",
+        auth: "",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
     },
   },
-  defaultVariants: {
-    variant: "default",
-  },
-});
+);
 
 export type InputVariantProps = VariantProps<typeof inputVariants>;
 
@@ -72,6 +83,10 @@ interface InputProps extends TextInputProps, InputVariantProps {
   containerClassName?: string;
   /** Optional element rendered inside the input on the right (e.g. a show/hide password button). */
   endAdornment?: React.ReactNode;
+  /** Shows a green check — use once a value has been confirmed (e.g. verified email). */
+  verified?: boolean;
+  /** Optional element rendered inside the input on the left (a 20px icon). */
+  startAdornment?: React.ReactNode;
 }
 
 const INPUT_FONT_SIZE = 16;
@@ -86,31 +101,55 @@ export function Input({
   containerClassName,
   placeholderTextColor,
   endAdornment,
+  startAdornment,
+  verified,
   multiline,
+  editable,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: InputProps) {
-  const defaultPlaceholder =
-    variant === "auth" ? "#ced1db" : colors["muted-foreground"];
+  const colors = useThemeColors();
+  const [focused, setFocused] = useState(false);
+  const locked = editable === false;
+  const isUnderline = variant === "underline";
+
+  const stateClass = error
+    ? isUnderline
+      ? "border-b-destructive-text"
+      : "border-[1.5px] border-destructive-text"
+    : focused
+      ? isUnderline
+        ? "border-b-primary"
+        : "border-[1.5px] border-primary"
+      : null;
 
   return (
     <View className={cn("gap-1.5", containerClassName)}>
       {label && (
-        <Text className="text-sm font-medium text-foreground">{label}</Text>
+        <Text className="font-sans-semibold text-sm leading-[18px] text-foreground">
+          {label}
+        </Text>
       )}
       <View
+        style={isUnderline || locked ? undefined : SHADOWS.field}
         className={cn(
           inputContainerVariants({ variant, multiline: Boolean(multiline) }),
-          error &&
-            (variant === "underline"
-              ? "border-b-destructive"
-              : "border-destructive"),
-          endAdornment && "gap-2",
+          stateClass,
+          locked && "bg-muted",
+          (endAdornment || verified || startAdornment) && "gap-2.5",
         )}
       >
+        {startAdornment}
         <TextInput
           multiline={multiline}
-          className={cn(inputTextVariants({ variant }), className)}
+          editable={editable}
+          className={cn(
+            inputTextVariants({ variant }),
+            locked && "text-muted-foreground",
+            className,
+          )}
           style={[
             {
               fontSize: INPUT_FONT_SIZE,
@@ -123,15 +162,30 @@ export function Input({
             },
             style,
           ]}
-          placeholderTextColor={placeholderTextColor ?? defaultPlaceholder}
+          placeholderTextColor={placeholderTextColor ?? colors.hint}
+          onFocus={(e) => {
+            setFocused(true);
+            onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            onBlur?.(e);
+          }}
           {...props}
         />
+        {verified ? (
+          <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+        ) : null}
         {endAdornment}
       </View>
       {error ? (
-        <Text className="text-xs text-destructive">{error}</Text>
+        <Text className="font-sans-semibold text-[13px] leading-[18px] text-destructive-text">
+          {error}
+        </Text>
       ) : hint ? (
-        <Text className="text-xs text-muted-foreground">{hint}</Text>
+        <Text className="font-sans-medium text-[13px] leading-[18px] text-muted-foreground">
+          {hint}
+        </Text>
       ) : null}
     </View>
   );

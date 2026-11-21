@@ -61,7 +61,7 @@ def build_content(mode, route, tag, branch):
             f"**{route} APK:** {apk_url}\n"
             "\n"
             f"Branch: `{branch}`\n"
-            f"Runner: `self-hosted` ({cpu_cores} CPU cores, {memory_total} RAM)\n"
+            f"Runner: `github-hosted` ({cpu_cores} CPU cores, {memory_total} RAM)\n"
             f"Build time: {elapsed} | Peak memory: {memory_part}\n"
             f"Disk available before build: {disk_available}\n"
             f"Run logs: {run_url()}"

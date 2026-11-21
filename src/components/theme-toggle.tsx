@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeStore } from "~/lib/stores/theme-store";
@@ -9,7 +9,7 @@ export function ThemeToggle() {
   const { theme, setTheme } = useThemeStore();
   const isDark = theme === "dark";
 
-  const translateX = useRef(new Animated.Value(isDark ? 1 : 0)).current;
+  const [translateX] = useState(() => new Animated.Value(isDark ? 1 : 0));
 
   useEffect(() => {
     Animated.spring(translateX, {
@@ -25,9 +25,6 @@ export function ThemeToggle() {
     outputRange: [2, 18],
   });
 
-  const trackColor = isDark
-    ? darkColors["accent-foreground"]
-    : lightColors.secondary;
   const iconColor = isDark ? darkColors.foreground : lightColors.foreground;
   const dimColor = isDark
     ? darkColors["muted-foreground"]
