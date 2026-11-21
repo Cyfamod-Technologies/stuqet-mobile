@@ -54,7 +54,7 @@ export const SHOP_SEEDS: Record<DemoShopKind, ShopSeed> = {
     title: "Mama Ngozi's Kitchen | Home-style Nigerian food",
     description: "Jollof, soups, suya and snacks cooked fresh every morning.",
     logo: demoImage("shop/logo-kitchen"),
-    upload_id: null,
+    upload_id: "9004",
     sliders: [demoImage("shop/banner-3")],
     sliders_id: "9103",
     address: "14 Moremi Road, Akoka, Lagos",
@@ -83,7 +83,7 @@ export const SHOP_SEEDS: Record<DemoShopKind, ShopSeed> = {
     description:
       "Laptop repairs, tutoring, photography, printing and laundry for students.",
     logo: demoImage("shop/logo-fixit"),
-    upload_id: null,
+    upload_id: "9005",
     sliders: [demoImage("shop/banner-2")],
     sliders_id: "9102",
     address: "Shop 12, Akoka Plaza, Akoka, Lagos",

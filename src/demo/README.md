@@ -1,5 +1,7 @@
 # Vendor demo mode
 
+The customer and rider app has its own demo: see [customer/README.md](customer/README.md).
+
 Runs the whole vendor app on bundled sample data, so every screen and form can
 be tried without the Stuqet API, a network or a backend account.
 

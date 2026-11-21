@@ -10,7 +10,7 @@ import { dataSetFromToken, resolveRoute, type DemoResult } from "./handlers";
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function parseBody(data: unknown): Record<string, unknown> {
+export function parseBody(data: unknown): Record<string, unknown> {
   if (typeof data === "string") {
     try {
       const parsed: unknown = JSON.parse(data);
@@ -27,7 +27,7 @@ function parseBody(data: unknown): Record<string, unknown> {
     : {};
 }
 
-function splitUrl(config: InternalAxiosRequestConfig) {
+export function splitUrl(config: InternalAxiosRequestConfig) {
   let url = config.url ?? "";
   const base = config.baseURL ?? "";
   if (base && url.startsWith(base)) url = url.slice(base.length);
@@ -41,7 +41,7 @@ function splitUrl(config: InternalAxiosRequestConfig) {
   return { path: path.startsWith("/") ? path : `/${path}`, query };
 }
 
-function respond(
+export function respond(
   config: InternalAxiosRequestConfig,
   result: DemoResult,
 ): AxiosResponse {

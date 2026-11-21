@@ -17,6 +17,8 @@ import type { DemoDataSet, DemoDb, DemoShopKind } from "./types";
 /** Seed uploads the shops' logos and banners point at. */
 const SEED_UPLOADS: [number, string][] = [
   [9001, demoImage("shop/logo")],
+  [9004, demoImage("shop/logo-kitchen")],
+  [9005, demoImage("shop/logo-fixit")],
   [9101, demoImage("shop/banner-1")],
   [9102, demoImage("shop/banner-2")],
   [9103, demoImage("shop/banner-3")],
