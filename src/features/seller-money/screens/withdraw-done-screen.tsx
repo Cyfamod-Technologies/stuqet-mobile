@@ -11,7 +11,7 @@ export function WithdrawDoneScreen() {
   const { amount } = useLocalSearchParams<{ amount?: string }>();
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1">
       <View className="flex-1 items-center justify-center gap-[18px] px-6">
         <HeroBadge icon="checkmark" tone="success" />
         <Text variant="display" className="text-center text-[30px] leading-9">

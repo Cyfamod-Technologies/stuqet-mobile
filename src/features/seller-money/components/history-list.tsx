@@ -127,7 +127,7 @@ export function HistoryList<T>({
         paddingHorizontal: 20,
       }}
       showsVerticalScrollIndicator={false}
-      className="flex-1 bg-background"
+      className="flex-1"
     />
   );
 }

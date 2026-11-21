@@ -21,12 +21,15 @@ export function FormScreen({
   footer,
 }: FormScreenProps) {
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Screen contentContainerStyle={{ paddingBottom: 24 }}>
+        <Screen
+          className="bg-transparent"
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
           <ScreenHeader title={title} back onBack={onBack} />
           {children}
         </Screen>

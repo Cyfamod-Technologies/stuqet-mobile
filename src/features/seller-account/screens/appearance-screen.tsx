@@ -14,7 +14,7 @@ export function AppearanceScreen() {
   const setTheme = useThemeStore((state) => state.setTheme);
 
   return (
-    <Screen>
+    <Screen className="bg-transparent">
       <ScreenHeader title="Appearance" back />
 
       {isThemeSwitchEnabled ? (

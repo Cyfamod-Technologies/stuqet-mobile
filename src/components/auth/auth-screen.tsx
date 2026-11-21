@@ -15,15 +15,7 @@ interface AuthScreenProps {
 // blobs in the corners, keyboard avoidance and (optionally) a back button.
 export function AuthScreen({ children, back, footer }: AuthScreenProps) {
   return (
-    <View className="flex-1 overflow-hidden bg-authBackground">
-      <View
-        pointerEvents="none"
-        className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-tint opacity-80"
-      />
-      <View
-        pointerEvents="none"
-        className="absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-tint opacity-60"
-      />
+    <View className="flex-1">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}

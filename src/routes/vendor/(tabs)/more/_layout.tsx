@@ -12,7 +12,7 @@ export default function MoreLayout() {
         headerStyle: { backgroundColor: palette.background },
         headerTintColor: palette.foreground,
         headerShadowVisible: false,
-        contentStyle: { backgroundColor: palette.background },
+        contentStyle: { backgroundColor: "transparent" },
         headerTitleStyle: { fontFamily: "DMSans-SemiBold", fontSize: 17 },
       }}
     >

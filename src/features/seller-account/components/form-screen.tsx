@@ -21,12 +21,12 @@ export function FormScreen({
   refreshControl,
 }: FormScreenProps) {
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1">
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <Screen refreshControl={refreshControl}>
+        <Screen className="bg-transparent" refreshControl={refreshControl}>
           <ScreenHeader title={title} back />
           {children}
         </Screen>

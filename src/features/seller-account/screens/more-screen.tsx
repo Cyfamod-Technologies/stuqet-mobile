@@ -39,6 +39,7 @@ export function MoreScreen() {
 
   return (
     <Screen
+      className="bg-transparent"
       refreshControl={
         <RefreshControl
           refreshing={shop.isRefetching}

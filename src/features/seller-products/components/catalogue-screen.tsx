@@ -201,7 +201,7 @@ export function CatalogueScreen() {
   };
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1">
       <View
         className="gap-4 px-5 pb-4"
         style={{ paddingTop: insets.top + 12 }}

@@ -59,16 +59,8 @@ export function WelcomeScreen() {
   }));
 
   return (
-    <View className="flex-1 items-center justify-center overflow-hidden bg-background px-6">
+    <View className="flex-1 items-center justify-center px-6">
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <View
-        pointerEvents="none"
-        className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-tint opacity-80"
-      />
-      <View
-        pointerEvents="none"
-        className="absolute -bottom-32 -left-24 h-72 w-72 rounded-full bg-tint opacity-60"
-      />
 
       <Logo size="xl" />
 

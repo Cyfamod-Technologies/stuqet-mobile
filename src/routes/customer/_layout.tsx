@@ -24,6 +24,8 @@ import { ForceUpdateModal } from "~/components/force-update-modal";
 import { isDebugOverlayEnabled } from "~/lib/debug-store";
 import { useThemeStore } from "~/lib/stores/theme-store";
 import { darkThemeVars, lightThemeVars } from "~/lib/theme-vars";
+import { Backdrop } from "~/components/backdrop";
+import { useThemeColors } from "~/lib/colors";
 
 SplashScreen.preventAutoHideAsync();
 initSentry();
@@ -38,6 +40,7 @@ export default function RootLayout() {
   });
 
   const { theme, hydrate } = useThemeStore();
+  const palette = useThemeColors();
 
   const ready = fontsLoaded || fontError != null;
 
@@ -57,10 +60,11 @@ export default function RootLayout() {
         <TanstackQueryProvider>
           <View
             style={[
-              { flex: 1 },
+              { flex: 1, backgroundColor: palette.background },
               theme === "dark" ? darkThemeVars : lightThemeVars,
             ]}
           >
+            <Backdrop />
             <OfflineBanner />
             <ForceUpdateModal />
             <Slot />

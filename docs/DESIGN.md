@@ -99,6 +99,14 @@ message; verified → green check inside the field; locked (`editable={false}`) 
 unauthenticated screen: off-white background, two peach corner blobs, keyboard
 avoidance, optional back button and pinned footer.
 
+## Background
+
+Every screen in both apps sits on the same off-white ground with two soft peach
+circles in the top-right corner (`Backdrop`, `src/components/backdrop.tsx`). It
+is drawn once by each app's root layout, and navigators and screens are
+transparent (`Screen` is `bg-transparent`) so it shows through everywhere. Don't
+give a screen root `bg-background`; cards, tab bars and action bars stay opaque.
+
 ## Adding to the system
 
 1. New colour → add the key to **both** `lightColors` and `darkColors`, then to
