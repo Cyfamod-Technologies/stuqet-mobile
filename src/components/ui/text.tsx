@@ -9,10 +9,20 @@ const textVariants = cva("font-sans text-foreground", {
   variants: {
     variant: {
       display: "font-sans-extrabold text-[32px] leading-[38px]",
+      // Root-tab title (30/36 extrabold, -0.5 tracking) — ScreenHeader.
+      screenTitle:
+        "font-sans-extrabold text-[30px] leading-9 tracking-[-0.5px]",
+      // Pushed-screen title (21/26 extrabold, centred by ScreenHeader).
+      headerTitle:
+        "font-sans-extrabold text-[21px] leading-[26px] tracking-[-0.2px]",
+      // Bottom-sheet title (22/28 extrabold).
+      sheetTitle: "font-sans-extrabold text-[22px] leading-7",
       title: "font-sans-bold text-2xl leading-8",
       heading: "font-sans-bold text-lg leading-6",
       body: "text-base leading-6",
-      label: "font-sans-semibold text-sm",
+      label: "font-sans-semibold text-sm leading-[18px]",
+      // Secondary line under a row title (13/18 medium, muted).
+      meta: "font-sans-medium text-[13px] leading-[18px] text-muted-foreground",
       caption: "text-xs leading-4 text-muted-foreground",
       link: "font-sans-bold text-sm text-brand-text",
     },

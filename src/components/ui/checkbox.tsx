@@ -29,7 +29,7 @@ export function Checkbox({
         "h-6 w-6 items-center justify-center rounded-checkbox",
         checked
           ? "border-[1.5px] border-primary bg-primary"
-          : "border-[1.5px] border-border bg-field",
+          : "border-[1.5px] border-control bg-field",
         className,
       )}
     >

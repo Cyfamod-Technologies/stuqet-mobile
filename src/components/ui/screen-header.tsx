@@ -27,7 +27,11 @@ export function ScreenHeader({
     return (
       <View className="flex-row items-center gap-3">
         <BackButton onPress={onBack} />
-        <Text variant="heading" className="flex-1 text-center text-[21px]">
+        <Text
+          variant="headerTitle"
+          numberOfLines={1}
+          className="flex-1 text-center"
+        >
           {title}
         </Text>
         <View className="min-w-11 items-end">{right}</View>
@@ -37,11 +41,18 @@ export function ScreenHeader({
 
   return (
     <View className="flex-row items-start justify-between gap-3">
-      <View className="flex-1">
-        <Text variant="display" className="text-[30px] leading-9">
+      <View className="min-w-0 flex-1">
+        <Text variant="screenTitle" numberOfLines={1}>
           {title}
         </Text>
-        {subtitle ? <Text tone="muted">{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text
+            tone="muted"
+            className="mt-0.5 font-sans-medium text-[15px] leading-5"
+          >
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
       {right ? <View className="flex-row gap-2.5">{right}</View> : null}
     </View>

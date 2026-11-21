@@ -5,7 +5,8 @@ import { cn } from "~/lib/utils/helpers";
 import { SHADOWS, useThemeColors } from "~/lib/colors";
 
 // Pill buttons. The default (primary) button is 56px tall with white 19px bold
-// text and an orange glow; smaller sizes keep a 44px minimum touch target.
+// text and an orange glow; outline is white with the field shadow (17px bold);
+// soft is the brand tint; sm is 44px (15px bold) and keeps the touch target.
 const buttonVariants = cva(
   "flex-row items-center justify-center gap-2 rounded-pill active:opacity-90",
   {
@@ -44,11 +45,19 @@ const buttonTextVariants = cva("font-sans-bold", {
     },
     size: {
       default: "text-[19px]",
-      sm: "text-base",
+      sm: "text-[15px]",
       lg: "text-[19px]",
       icon: "text-base",
     },
   },
+  compoundVariants: [
+    // Only the filled pills use the 19px label (large-text contrast). White,
+    // soft and ghost pills at full size use 17px (boards).
+    { variant: "outline", size: ["default", "lg"], className: "text-[17px]" },
+    { variant: "secondary", size: ["default", "lg"], className: "text-[17px]" },
+    { variant: "ghost", size: ["default", "lg"], className: "text-[17px]" },
+    { variant: "soft", size: ["default", "lg"], className: "text-[17px]" },
+  ],
   defaultVariants: {
     variant: "default",
     size: "default",
@@ -96,6 +105,7 @@ export function Button({
   const spinnerColor = colors[VARIANT_COLOR_KEY[variant ?? "default"]];
   const inactive = disabled || loading;
   const glows = (variant ?? "default") === "default" && size !== "icon";
+  const lifts = variant === "outline";
 
   return (
     <Pressable
@@ -103,7 +113,13 @@ export function Button({
       disabled={inactive}
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={glows && !inactive ? SHADOWS.button : undefined}
+      style={
+        glows && !inactive
+          ? SHADOWS.button
+          : lifts && !inactive
+            ? SHADOWS.field
+            : undefined
+      }
       className={cn(
         buttonVariants({ variant, size }),
         inactive && "opacity-50",

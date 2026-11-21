@@ -11,6 +11,11 @@ const config: Config = {
         authBackground: "var(--authBackground)",
         field: "var(--field)",
         hint: "var(--hint)",
+        subtle: "var(--subtle)",
+        pill: "var(--pill)",
+        "neutral-text": "var(--neutral-text)",
+        control: "var(--control)",
+        divider: "var(--divider)",
         card: {
           DEFAULT: "var(--card)",
           foreground: "var(--card-foreground)",
@@ -27,6 +32,7 @@ const config: Config = {
         tint: {
           DEFAULT: "var(--tint)",
           border: "var(--tint-border)",
+          deep: "var(--tint-deep)",
         },
         secondary: {
           DEFAULT: "var(--secondary)",
@@ -45,17 +51,24 @@ const config: Config = {
           foreground: "var(--destructive-foreground)",
           tint: "var(--destructive-tint)",
           text: "var(--destructive-text)",
+          border: "var(--destructive-border)",
         },
         success: {
           DEFAULT: "var(--success)",
           tint: "var(--success-tint)",
           text: "var(--success-text)",
+          border: "var(--success-border)",
         },
         warning: {
           DEFAULT: "var(--warning)",
           tint: "var(--warning-tint)",
+          text: "var(--warning-text)",
+          border: "var(--warning-border)",
         },
-        border: "var(--border)",
+        border: {
+          DEFAULT: "var(--border)",
+          strong: "var(--border-strong)",
+        },
         input: "var(--input)",
         ring: "var(--ring)",
       },
@@ -71,6 +84,9 @@ const config: Config = {
       },
       borderRadius: {
         field: "14px",
+        tile: "14px",
+        card: "20px",
+        sheet: "28px",
         pill: "9999px",
         checkbox: "8px",
       },

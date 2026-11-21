@@ -25,7 +25,8 @@ const brandColors =
  * must use `brand-text` (5.3:1), never `primary`.
  */
 
-// Light theme — off-white screens, white shadowed fields.
+// Light theme — off-white screens, white shadowed fields. Values come from the
+// Themes board (Light) and the vendor app boards.
 export const lightColors = {
   // Surfaces
   background: "#FBFAF8",
@@ -33,105 +34,129 @@ export const lightColors = {
   card: "#FFFFFF",
   popover: "#FFFFFF",
   field: "#FFFFFF",
-  secondary: "#F4F1EC",
-  muted: "#F4F1EC",
-  accent: "#FDF0E6",
+  secondary: "#F1ECE6", // segmented track, neutral pill/button fill
+  muted: "#F6F0EA", // soft fill: locked fields, pressed rows
+  accent: "#FFF1E7",
+  pill: "#FFFFFF", // selected segment
 
   // Text
-  foreground: "#1C1917",
-  "card-foreground": "#1C1917",
-  "popover-foreground": "#1C1917",
-  "secondary-foreground": "#1C1917",
-  "muted-foreground": "#6B6560",
-  hint: "#9A938B",
+  foreground: "#1B130C",
+  "card-foreground": "#1B130C",
+  "popover-foreground": "#1B130C",
+  "secondary-foreground": "#1B130C",
+  "muted-foreground": "#6B5E54",
+  hint: "#7A6C60", // placeholders
+  subtle: "#A39588", // chevrons, disabled icons
+  "neutral-text": "#4A3F36", // text on neutral badges
   "accent-foreground": "#B54A08",
 
   // Brand
   primary: brandColors.primary,
   "primary-foreground": brandColors.primaryForeground,
   "brand-text": "#B54A08",
-  tint: "#FDF0E6",
-  "tint-border": "#F8D9C0",
+  tint: "#FFF1E7",
+  "tint-border": "#F6D5BE",
+  "tint-deep": "#FFE2CF", // decor circles, logo-monogram tile
   ring: brandColors.primary,
 
   // Lines
-  border: "#E7E2DA",
-  input: "#E7E2DA",
+  border: "#E4DCD3",
+  input: "#E4DCD3",
+  "border-strong": "#D9CBBE", // OTP boxes, secondary controls
+  control: "#CFC3B8", // unchecked checkbox border, toggle off track
+  divider: "#F0EAE3", // hairline between rows inside a card
 
   // Status
   destructive: "#EF486A",
   "destructive-foreground": "#FFFFFF",
   "destructive-tint": "#FDECF0",
   "destructive-text": "#C42048",
+  "destructive-border": "#F6C7D2",
   success: "#1F9D61",
   "success-tint": "#E8F6EE",
   "success-text": "#12724A",
+  "success-border": "#BFE5D0",
   warning: "#D97706",
-  "warning-tint": "#FEF3E2",
+  "warning-tint": "#FFF4DC",
+  "warning-text": "#7A4B00",
+  "warning-border": "#F0D9A0",
 } as const;
 
-// Dark theme — warm near-black screens, raised charcoal fields.
+// Dark theme — warm near-black screens, raised charcoal fields. Values come
+// from the Themes board (Dark).
 export const darkColors = {
   // Surfaces
-  background: "#121110",
-  authBackground: "#121110",
-  card: "#1C1A18",
-  popover: "#1C1A18",
-  field: "#1C1A18",
-  secondary: "#26231F",
-  muted: "#26231F",
-  accent: "#2A1A0F",
+  background: "#14100C",
+  authBackground: "#14100C",
+  card: "#1E1812",
+  popover: "#1E1812",
+  field: "#1E1812",
+  secondary: "#271F18",
+  muted: "#271F18",
+  accent: "#2E1D12",
+  pill: "#3A3027",
 
   // Text
-  foreground: "#F5F2EE",
-  "card-foreground": "#F5F2EE",
-  "popover-foreground": "#F5F2EE",
-  "secondary-foreground": "#F5F2EE",
-  "muted-foreground": "#A8A199",
-  hint: "#7A736B",
-  "accent-foreground": "#F4934F",
+  foreground: "#F7F2EC",
+  "card-foreground": "#F7F2EC",
+  "popover-foreground": "#F7F2EC",
+  "secondary-foreground": "#F7F2EC",
+  "muted-foreground": "#BDB0A4",
+  hint: "#A09286",
+  subtle: "#857363",
+  "neutral-text": "#D8CCC0",
+  "accent-foreground": "#FF9B5A",
 
   // Brand
   primary: brandColors.primary,
   "primary-foreground": brandColors.primaryForeground,
-  "brand-text": "#F4934F",
-  tint: "#2A1A0F",
-  "tint-border": "#4A2C16",
+  "brand-text": "#FF9B5A",
+  tint: "#2E1D12",
+  "tint-border": "#5A361C",
+  "tint-deep": "#3D2514",
   ring: brandColors.primary,
 
   // Lines
-  border: "#2E2A26",
-  input: "#2E2A26",
+  border: "#3A3027",
+  input: "#3A3027",
+  "border-strong": "#5A4C3F",
+  control: "#857363",
+  divider: "#2B231B",
 
   // Status
   destructive: "#F4607F",
   "destructive-foreground": "#FFFFFF",
-  "destructive-tint": "#33161D",
-  "destructive-text": "#FF8FA6",
+  "destructive-tint": "#3A1517",
+  "destructive-text": "#FF6B73",
+  "destructive-border": "#6B2A2E",
   success: "#34C07F",
-  "success-tint": "#10261B",
-  "success-text": "#6FDBA6",
+  "success-tint": "#11281D",
+  "success-text": "#4CC38A",
+  "success-border": "#1E5A3C",
   warning: "#F59E0B",
   "warning-tint": "#2E200A",
+  "warning-text": "#F5C26B",
+  "warning-border": "#5A4310",
 } as const;
 
 // Shadows can't be expressed as theme variables in React Native, so they are
 // style constants. Radii, heights and type live in tailwind.config.ts.
 export const SHADOWS = {
-  // Soft lift under white fields on the off-white screen.
+  // Soft lift under white fields and cards: 0 2px 8px rgba(27,19,12,.06).
   field: {
-    shadowColor: "#1C1917",
+    shadowColor: "#1B130C",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
   },
-  // Orange glow under the primary pill button.
+  // Orange glow under the primary pill button (board: 0 10px 20px -8px
+  // rgba(235,108,26,.6); React Native has no spread, so the radius is tighter).
   button: {
     shadowColor: brandColors.primary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     elevation: 6,
   },
   // Orange glow around a checked checkbox.
@@ -142,6 +167,49 @@ export const SHADOWS = {
     shadowRadius: 6,
     elevation: 3,
   },
+  // Selected segment of the pill SegmentedControl: 0 1px 3px rgba(27,19,12,.12).
+  pill: {
+    shadowColor: "#1B130C",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  // Toggle thumb: 0 1px 3px rgba(27,19,12,.25).
+  thumb: {
+    shadowColor: "#1B130C",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  // Pinned bottom bars (tab bar, action bar): 0 -4px 16px rgba(27,19,12,.05).
+  bar: {
+    shadowColor: "#1B130C",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  // Bottom sheet: 0 -12px 40px rgba(27,19,12,.25).
+  sheet: {
+    shadowColor: "#1B130C",
+    shadowOffset: { width: 0, height: -12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 16,
+  },
+} as const;
+
+// Brand-mark art (Logo.dc board): fixed in both themes, so they live here as
+// constants rather than theme variables. Only the tile/glyph pairs the logo
+// needs are listed; screens never use these directly.
+export const LOGO_COLORS = {
+  brand: brandColors.primary,
+  onBrand: "#FFFFFF",
+  white: "#FFFFFF",
+  ink: "#1B130C",
+  inkOnDark: "#1E1812",
 } as const;
 
 // Default export kept for any direct usages outside Tailwind/NativeWind vars.

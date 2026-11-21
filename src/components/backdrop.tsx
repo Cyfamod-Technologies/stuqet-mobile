@@ -12,8 +12,8 @@ export function Backdrop() {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <View className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-tint" />
-      <View className="absolute -right-8 -top-14 h-40 w-40 rounded-full bg-tint-border opacity-60" />
+      <View className="absolute -right-[100px] -top-[120px] h-80 w-80 rounded-full bg-tint" />
+      <View className="absolute -right-[30px] -top-[50px] h-40 w-40 rounded-full bg-tint-deep" />
     </View>
   );
 }

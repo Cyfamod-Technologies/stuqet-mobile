@@ -12,7 +12,8 @@ import { cn } from "~/lib/utils/helpers";
 import { SHADOWS, useThemeColors } from "~/lib/colors";
 
 // Design-system field: white surface, 1px border, 14px radius, 52px tall, soft
-// shadow. Focus swaps the border to the brand orange; error to destructive.
+// shadow. Focus swaps the border to the brand orange (1.5px); error to
+// destructive-text (1.5px). Locked fields use the soft fill and no shadow.
 const FIELD_BOX = "rounded-field border border-border bg-field";
 
 /** Box styles shared with non-Input rows (e.g. SwitchRow). */
@@ -84,6 +85,8 @@ interface InputProps extends TextInputProps, InputVariantProps {
   endAdornment?: React.ReactNode;
   /** Shows a green check — use once a value has been confirmed (e.g. verified email). */
   verified?: boolean;
+  /** Optional element rendered inside the input on the left (a 20px icon). */
+  startAdornment?: React.ReactNode;
 }
 
 const INPUT_FONT_SIZE = 16;
@@ -98,6 +101,7 @@ export function Input({
   containerClassName,
   placeholderTextColor,
   endAdornment,
+  startAdornment,
   verified,
   multiline,
   editable,
@@ -113,18 +117,18 @@ export function Input({
 
   const stateClass = error
     ? isUnderline
-      ? "border-b-destructive"
-      : "border-destructive"
+      ? "border-b-destructive-text"
+      : "border-[1.5px] border-destructive-text"
     : focused
       ? isUnderline
         ? "border-b-primary"
-        : "border-primary"
+        : "border-[1.5px] border-primary"
       : null;
 
   return (
     <View className={cn("gap-1.5", containerClassName)}>
       {label && (
-        <Text className="font-sans-semibold text-sm text-foreground">
+        <Text className="font-sans-semibold text-sm leading-[18px] text-foreground">
           {label}
         </Text>
       )}
@@ -134,9 +138,10 @@ export function Input({
           inputContainerVariants({ variant, multiline: Boolean(multiline) }),
           stateClass,
           locked && "bg-muted",
-          (endAdornment || verified) && "gap-2",
+          (endAdornment || verified || startAdornment) && "gap-2.5",
         )}
       >
+        {startAdornment}
         <TextInput
           multiline={multiline}
           editable={editable}
@@ -174,11 +179,13 @@ export function Input({
         {endAdornment}
       </View>
       {error ? (
-        <Text className="font-sans-medium text-xs text-destructive-text">
+        <Text className="font-sans-semibold text-[13px] leading-[18px] text-destructive-text">
           {error}
         </Text>
       ) : hint ? (
-        <Text className="font-sans text-xs text-muted-foreground">{hint}</Text>
+        <Text className="font-sans-medium text-[13px] leading-[18px] text-muted-foreground">
+          {hint}
+        </Text>
       ) : null}
     </View>
   );

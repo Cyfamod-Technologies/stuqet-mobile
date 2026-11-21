@@ -13,7 +13,7 @@ const TONES: Record<
     box: string;
     text: string;
     icon: React.ComponentProps<typeof Ionicons>["name"];
-    color: "brand-text" | "success-text" | "warning" | "destructive-text";
+    color: "brand-text" | "success-text" | "warning-text" | "destructive-text";
   }
 > = {
   info: {
@@ -23,19 +23,19 @@ const TONES: Record<
     color: "brand-text",
   },
   success: {
-    box: "border-success/30 bg-success-tint",
+    box: "border-success-border bg-success-tint",
     text: "text-success-text",
     icon: "checkmark-circle",
     color: "success-text",
   },
   warning: {
-    box: "border-warning/30 bg-warning-tint",
-    text: "text-foreground",
+    box: "border-warning-border bg-warning-tint",
+    text: "text-warning-text",
     icon: "warning",
-    color: "warning",
+    color: "warning-text",
   },
   error: {
-    box: "border-destructive/30 bg-destructive-tint",
+    box: "border-destructive-border bg-destructive-tint",
     text: "text-destructive-text",
     icon: "alert-circle",
     color: "destructive-text",
@@ -50,7 +50,8 @@ interface NoticeProps {
 }
 
 // Inline banner for form-level feedback (wrong password, account under review,
-// "we sent you a code", session expired…).
+// "we sent you a code", session expired…): 16px radius, 1.5px tinted border,
+// 12/14px padding, 14/20 semibold text.
 export function Notice({
   tone = "info",
   title,
@@ -64,7 +65,7 @@ export function Notice({
     <View
       accessibilityRole="alert"
       className={cn(
-        "flex-row gap-3 rounded-field border p-3.5",
+        "flex-row gap-3 rounded-2xl border-[1.5px] px-3.5 py-3",
         t.box,
         className,
       )}
@@ -77,7 +78,10 @@ export function Notice({
           </Text>
         ) : null}
         {children ? (
-          <Text variant="caption" className={cn("text-sm leading-5", t.text)}>
+          <Text
+            variant="caption"
+            className={cn("font-sans-semibold text-sm leading-5", t.text)}
+          >
             {children}
           </Text>
         ) : null}
