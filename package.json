@@ -7,6 +7,8 @@
     "dev": "cross-env APP_VARIANT=development npx expo start",
     "dev:customer": "cross-env APP_VARIANT=development EXPO_PUBLIC_ROUTE=customer npx expo start",
     "dev:vendor": "cross-env APP_VARIANT=development EXPO_PUBLIC_ROUTE=vendor npx expo start",
+    "dev:vendor:demo": "cross-env APP_VARIANT=development EXPO_PUBLIC_ROUTE=vendor EXPO_PUBLIC_DEMO_MODE=true npx expo start",
+    "demo:images": "python3 scripts/generate-demo-images.py",
     "start:tunnel": "expo start --tunnel",
     "android": "expo start --android",
     "ios": "expo start --ios",

@@ -43,6 +43,7 @@ cp .env.example .env.local
 | `EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS` | No               | Vendor app: shows support tickets in More. Default off, because the mobile API has no ticket endpoints.                                                                                  |
 | `EXPO_PUBLIC_WEB_REGISTRATION_URL`   | No               | Vendor app: web page opened by "Create a shop" (shop registration is web-only). Falls back to the API origin plus `/shop/registration/verification`.                                     |
 | `EXPO_PUBLIC_SUPPORT_EMAIL`          | No               | Vendor app: address used by "Contact support".                                                                                                                                           |
+| `EXPO_PUBLIC_DEMO_MODE`              | No               | Vendor app: `"true"` runs the app on the bundled sample data in `src/demo` (no API, no network). Use `npm run dev:vendor:demo`. Never set it in a production build.                      |
 
 > `APP_VARIANT` (separate from the `EXPO_PUBLIC_*` vars) selects the native app
 > identity — bundle id, app name, and URL scheme — in `app.config.ts`. It is set

@@ -168,6 +168,19 @@ is drawn once by each app's root layout, and navigators and screens are
 transparent (`Screen` is `bg-transparent`) so it shows through everywhere. Don't
 give a screen root `bg-background`; cards, tab bars and action bars stay opaque.
 
+## Content animation
+
+Animation inside a screen lives in `src/components/ui/motion.tsx` and the
+components that use it. It is only for what is on a screen: `HeroBadge` and
+`StatusHero` pop in (success badges also send out a ripple and confetti),
+`useCountUp` eases the sales total and balance up to their value, the Home chart
+bars rise one after another, and `Button` gives a small press-down. Everything
+respects the phone's "Reduce motion" setting.
+
+How a screen loads and how screens navigate is not animated here; that belongs
+to the navigation layer (stacks, tabs, splash) and must not be changed from
+feature code. Do not add entrance animations to whole screens or list rows.
+
 ## Adding to the system
 
 1. New colour → add the key to **both** `lightColors` and `darkColors`, then to
