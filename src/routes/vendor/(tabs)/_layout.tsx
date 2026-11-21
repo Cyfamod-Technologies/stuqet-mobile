@@ -67,10 +67,22 @@ const TABS: TabConfig[] = [
   },
 ];
 
-/** Pushed form screens that sit full-height on the boards (no tab bar). */
+/** Pushed screens that sit full-height on the boards (no tab bar): create
+ * forms, order details, withdraw, the More sub-screens and support. Keyed by
+ * tab, then by the second path segment. */
 const FORM_SCREENS: Record<string, readonly string[]> = {
   catalogue: ["add-product", "add-food", "saved"],
   services: ["add", "saved"],
+  orders: ["[id]"],
+  money: ["withdraw", "withdraw-done"],
+  more: [
+    "payout",
+    "settings",
+    "shop-banners",
+    "shop-settings",
+    "support",
+    "verification",
+  ],
 };
 
 // Tab bar from the boards: 84px (white, hairline top border), a 56x30 pill
