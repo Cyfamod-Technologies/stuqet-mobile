@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DemoFill } from "~/components/demo-fill";
 import { BackButton } from "~/components/ui/back-button";
 import { Badge } from "~/components/ui/badge";
 import { EmptyState } from "~/components/ui/empty-state";
@@ -148,6 +149,19 @@ function TicketThread() {
         className="gap-2 border-t border-border bg-card px-4 pt-3"
         style={{ paddingBottom: Math.max(insets.bottom, 12) + 4 }}
       >
+        <DemoFill
+          label="Fill sample reply"
+          onFill={
+            process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+              ? () => {
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
+                  const samples =
+                    require("~/demo/samples") as typeof import("~/demo/samples");
+                  setText(samples.replySample());
+                }
+              : undefined
+          }
+        />
         {attachment.photo ? (
           <View className="flex-row pt-2">
             <PhotoChip

@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "~/components/ui/button";
+import { DemoFill } from "~/components/demo-fill";
 import { Text } from "~/components/ui/text";
 import { AuthField } from "~/features/auth/components/auth-field";
 import { AuthHeading } from "~/features/auth/components/auth-heading";
@@ -58,6 +59,19 @@ export function VendorForgotPasswordScreen() {
       </View>
 
       <View className="mt-[26px] gap-4">
+        <DemoFill
+          label="Fill with demo email"
+          onFill={
+            process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+              ? () => {
+                  setValue("method", "email");
+                  setValue("identifier", "shop@campusmart.com", {
+                    shouldValidate: true,
+                  });
+                }
+              : undefined
+          }
+        />
         <PillTabs
           options={METHOD_OPTIONS}
           value={method}

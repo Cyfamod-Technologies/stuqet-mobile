@@ -39,12 +39,25 @@ export function AddProductScreen() {
   const { mutate: createProduct, isPending } = useCreateProduct();
   const [serverNotice, setServerNotice] = useState<string[]>([]);
 
-  const { control, handleSubmit, setError } = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema),
-    defaultValues: PRODUCT_DEFAULT_VALUES,
-  });
+  const { control, handleSubmit, setError, reset } = useForm<ProductFormValues>(
+    {
+      resolver: zodResolver(productSchema),
+      defaultValues: PRODUCT_DEFAULT_VALUES,
+    },
+  );
 
   const blockedByPhotos = uploads.isUploading || uploads.hasFailed;
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.productSample());
+          if (uploads.photos.length === 0) void uploads.pickFromLibrary();
+        }
+      : undefined;
 
   const onSubmit = handleSubmit((values) => {
     if (blockedByPhotos) return;
@@ -67,6 +80,7 @@ export function AddProductScreen() {
   return (
     <FormScreen
       title="Add product"
+      demoFill={fill}
       footer={
         <Button
           onPress={() => void onSubmit()}

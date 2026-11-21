@@ -50,7 +50,7 @@ function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
   const [logo, setLogo] = useState<PendingLogo | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { control, handleSubmit } = useForm<ShopProfileValues>({
+  const { control, handleSubmit, reset } = useForm<ShopProfileValues>({
     resolver: zodResolver(shopProfileSchema),
     defaultValues: {
       name: shop.name ?? "",
@@ -97,11 +97,22 @@ function ShopSettingsForm({ shop }: { shop: ShopInfo }) {
     );
   });
 
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.shopProfileSample());
+        }
+      : undefined;
+
   const logoUri = logo?.uri ?? (hasUploadedLogo(shop) ? shop.logo : null);
 
   return (
     <FormScreen
       title="Shop settings"
+      demoFill={fill}
       footer={
         <Button
           onPress={onSubmit}

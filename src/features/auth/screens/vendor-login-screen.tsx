@@ -10,6 +10,7 @@ import { Notice } from "~/components/ui/notice";
 import { Text } from "~/components/ui/text";
 import { isBiometricAvailable } from "~/features/auth/biometrics";
 import { AuthField } from "~/features/auth/components/auth-field";
+import { DemoAccounts } from "~/features/auth/components/demo-accounts";
 import { AuthHeading } from "~/features/auth/components/auth-heading";
 import { AuthPage } from "~/features/auth/components/auth-page";
 import { BrandMark } from "~/features/auth/components/brand-mark";
@@ -105,6 +106,13 @@ export function VendorLoginScreen() {
       </View>
 
       <View className="mt-5 gap-3.5">
+        <DemoAccounts
+          onPick={({ email, password }) => {
+            setValue("method", "email");
+            setValue("identifier", email, { shouldValidate: true });
+            setValue("password", password, { shouldValidate: true });
+          }}
+        />
         <PillTabs
           options={METHOD_OPTIONS}
           value={method}

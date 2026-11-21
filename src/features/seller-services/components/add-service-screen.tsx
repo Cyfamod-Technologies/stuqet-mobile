@@ -73,13 +73,24 @@ export function AddServiceScreen() {
   const [step, setStep] = useState<1 | 2>(1);
   const [serverNotice, setServerNotice] = useState<string[]>([]);
 
-  const { control, handleSubmit, setError, trigger, setValue } =
+  const { control, handleSubmit, setError, trigger, setValue, reset } =
     useForm<ServiceFormValues>({
       resolver: zodResolver(serviceSchema),
       defaultValues: SERVICE_DEFAULT_VALUES,
     });
 
   const slotMode = useWatch({ control, name: "slot_mode" });
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.serviceSample());
+          if (uploads.photos.length === 0) void uploads.pickFromLibrary();
+        }
+      : undefined;
   const blockedByPhotos = uploads.isUploading || uploads.hasFailed;
 
   // Android back on step 2 returns to step 1 instead of leaving the form.
@@ -138,6 +149,7 @@ export function AddServiceScreen() {
       <FormScreen
         key="details"
         title="Add service"
+        demoFill={fill}
         footer={<Button onPress={() => void goNext()}>Continue</Button>}
       >
         <StepBar step={1} total={2} label="Details" />
@@ -200,6 +212,7 @@ export function AddServiceScreen() {
     <FormScreen
       key="pricing"
       title="Add service"
+      demoFill={fill}
       onBack={() => setStep(1)}
       footer={
         <Button

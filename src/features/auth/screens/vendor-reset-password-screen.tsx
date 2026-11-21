@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { DemoFill } from "~/components/demo-fill";
 import { Button } from "~/components/ui/button";
 import { OtpInput } from "~/components/ui/otp-input";
 import { Text } from "~/components/ui/text";
@@ -41,6 +42,7 @@ export function VendorResetPasswordScreen() {
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { isSubmitting, errors },
   } = useForm<VendorResetPasswordFormValues>({
     resolver: zodResolver(vendorResetPasswordSchema),
@@ -80,6 +82,24 @@ export function VendorResetPasswordScreen() {
       </View>
 
       <View className="mt-6 gap-5">
+        <DemoFill
+          label="Fill with demo code"
+          onFill={
+            process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+              ? () => {
+                  // eslint-disable-next-line @typescript-eslint/no-require-imports
+                  const { authSample } =
+                    require("~/demo/samples") as typeof import("~/demo/samples");
+                  setValue("code", authSample.resetCode, {
+                    shouldValidate: true,
+                  });
+                  setValue("password", authSample.newPassword, {
+                    shouldValidate: true,
+                  });
+                }
+              : undefined
+          }
+        />
         <View className="gap-2.5">
           <Text className="font-sans-semibold text-sm leading-[18px]">
             Verification code

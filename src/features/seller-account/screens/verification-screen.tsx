@@ -25,10 +25,20 @@ function VerificationForm({ elements }: VerificationFormProps) {
   const submit = useSubmitVerification();
 
   const schema = useMemo(() => createVerificationSchema(elements), [elements]);
-  const { control, handleSubmit } = useForm<VerificationFormValues>({
+  const { control, handleSubmit, reset } = useForm<VerificationFormValues>({
     resolver: zodResolver(schema) as Resolver<VerificationFormValues>,
     defaultValues: emptyVerificationValues(elements),
   });
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.verificationSample(elements));
+        }
+      : undefined;
 
   const onSubmit = handleSubmit((values) => {
     submit.mutate(
@@ -45,6 +55,7 @@ function VerificationForm({ elements }: VerificationFormProps) {
   return (
     <FormScreen
       title="Verification"
+      demoFill={fill}
       footer={
         <Button onPress={onSubmit} loading={submit.isPending}>
           Submit for review

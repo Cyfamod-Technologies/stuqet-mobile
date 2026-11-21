@@ -50,7 +50,7 @@ function PayoutForm({ shop }: { shop: ShopInfo }) {
   const colors = useThemeColors();
   const update = useUpdatePayout();
 
-  const { control, handleSubmit, setValue } = useForm<PayoutValues>({
+  const { control, handleSubmit, setValue, reset } = useForm<PayoutValues>({
     resolver: zodResolver(payoutSchema),
     defaultValues: {
       cash_on_delivery_status: Number(shop.cash_on_delivery_status) === 1,
@@ -80,6 +80,16 @@ function PayoutForm({ shop }: { shop: ShopInfo }) {
       shouldValidate: resolved.accountName !== "",
     });
   }, [resolveActive, resolved.accountName, setValue]);
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.payoutSample());
+        }
+      : undefined;
 
   const checking = resolveActive && resolved.status === "checking";
   const notFound = resolveActive && resolved.status === "not_found";
@@ -124,6 +134,7 @@ function PayoutForm({ shop }: { shop: ShopInfo }) {
   return (
     <FormScreen
       title="Payout details"
+      demoFill={fill}
       footer={
         <Button
           onPress={onSubmit}

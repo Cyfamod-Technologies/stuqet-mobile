@@ -78,7 +78,7 @@ export function AddFoodScreen() {
   const [step, setStep] = useState<1 | 2>(1);
   const [serverNotice, setServerNotice] = useState<string[]>([]);
 
-  const { control, handleSubmit, setError, trigger, setValue } =
+  const { control, handleSubmit, setError, trigger, setValue, reset } =
     useForm<FoodFormValues>({
       resolver: zodResolver(foodSchema),
       defaultValues: FOOD_DEFAULT_VALUES,
@@ -87,6 +87,17 @@ export function AddFoodScreen() {
   const stockMode = useWatch({ control, name: "stock_mode" });
   const availabilityMode = useWatch({ control, name: "availability_mode" });
   const blockedByPhotos = uploads.isUploading || uploads.hasFailed;
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.foodSample());
+          if (uploads.photos.length === 0) void uploads.pickFromLibrary();
+        }
+      : undefined;
 
   // Android back on step 2 returns to step 1 instead of leaving the form.
   useEffect(() => {
@@ -139,6 +150,7 @@ export function AddFoodScreen() {
       <FormScreen
         key="details"
         title="Add food"
+        demoFill={fill}
         footer={<Button onPress={() => void goNext()}>Continue</Button>}
       >
         <StepBar step={1} total={2} label="Details" />
@@ -248,6 +260,7 @@ export function AddFoodScreen() {
     <FormScreen
       key="pricing"
       title="Add food"
+      demoFill={fill}
       onBack={() => setStep(1)}
       footer={
         <Button

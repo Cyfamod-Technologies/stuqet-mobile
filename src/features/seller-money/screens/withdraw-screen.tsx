@@ -50,10 +50,20 @@ export function WithdrawScreen() {
     [min, balance, balanceText],
   );
 
-  const { control, handleSubmit } = useForm<WithdrawFormValues>({
+  const { control, handleSubmit, reset } = useForm<WithdrawFormValues>({
     resolver: zodResolver(schema),
     defaultValues: { amount: "", message: "" },
   });
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.withdrawSample());
+        }
+      : undefined;
 
   const onSubmit = handleSubmit(({ amount, message }) => {
     const value = parseTypedAmount(amount);
@@ -92,6 +102,7 @@ export function WithdrawScreen() {
   return (
     <FormScreen
       title="Withdraw money"
+      demoFill={fill}
       footer={
         <Button
           onPress={onSubmit}

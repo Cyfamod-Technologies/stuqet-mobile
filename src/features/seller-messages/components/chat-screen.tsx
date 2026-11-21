@@ -10,10 +10,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { DemoFill } from "~/components/demo-fill";
 import { EmptyState } from "~/components/ui/empty-state";
 import { ScreenHeader } from "~/components/ui/screen-header";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Text } from "~/components/ui/text";
+import { isDemoMode } from "~/demo/flag";
 import { useShopInfo } from "~/features/seller-shop/hooks";
 import { useThemeColors } from "~/lib/colors";
 import { cn } from "~/lib/utils/helpers";
@@ -192,6 +194,24 @@ export function ChatScreen() {
       >
         {body}
       </ScrollView>
+
+      {isDemoMode ? (
+        <View className="px-4 pb-2">
+          <DemoFill
+            label="Fill sample reply"
+            onFill={
+              process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+                ? () => {
+                    // eslint-disable-next-line @typescript-eslint/no-require-imports
+                    const samples =
+                      require("~/demo/samples") as typeof import("~/demo/samples");
+                    setDraft(samples.replySample());
+                  }
+                : undefined
+            }
+          />
+        </View>
+      ) : null}
 
       <View
         className="flex-row items-center gap-2.5 border-t border-border bg-card px-4 pt-3"

@@ -25,10 +25,20 @@ function NewTicketForm() {
   const attachment = usePhotoAttachment();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const { control, handleSubmit } = useForm<TicketValues>({
+  const { control, handleSubmit, reset } = useForm<TicketValues>({
     resolver: zodResolver(ticketSchema),
     defaultValues: { subject: "", details: "" },
   });
+
+  const fill =
+    process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+      ? () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const samples =
+            require("~/demo/samples") as typeof import("~/demo/samples");
+          reset(samples.ticketSample());
+        }
+      : undefined;
 
   const onSubmit = handleSubmit((values) => {
     create.mutate(
@@ -50,6 +60,7 @@ function NewTicketForm() {
   return (
     <FormScreen
       title="Create a ticket"
+      demoFill={fill}
       footer={
         <Button
           onPress={onSubmit}
