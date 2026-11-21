@@ -29,6 +29,9 @@ export function StatStrip({ items }: { items: StatItem[] }) {
             <Skeleton className="h-[26px] w-10" />
           ) : (
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}
               className={cn(
                 "font-sans-extrabold text-[22px] leading-[26px]",
                 item.accent === "brand" && "text-brand-text",

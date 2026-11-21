@@ -32,18 +32,20 @@ export function NotificationRow({
         !last && "border-b border-border",
       )}
     >
-      <View
-        className={cn(
-          "h-2.5 w-2.5 rounded-full",
-          unread ? "bg-primary" : "bg-transparent",
-        )}
-      />
+      {/* The unread dot sits on the icon tile's corner, so read rows keep no
+          empty column on the left. */}
       <View className="h-10 w-10 items-center justify-center rounded-[14px] bg-tint">
         <Ionicons
           name={notification.icon}
           size={20}
           color={colors["brand-text"]}
         />
+        {unread ? (
+          <View
+            accessibilityElementsHidden
+            className="absolute -left-1 -top-1 h-3.5 w-3.5 rounded-full border-2 border-card bg-primary"
+          />
+        ) : null}
       </View>
       <View className="flex-1 gap-0.5">
         <Text
