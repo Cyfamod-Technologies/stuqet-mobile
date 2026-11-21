@@ -2,7 +2,29 @@ import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "~/components/ui/text";
 import { isDemoMode } from "~/demo/flag";
+import { isCustomerApp } from "~/lib/config/features";
 import { cn } from "~/lib/utils/helpers";
+
+interface DemoChip {
+  key: string;
+  label: string;
+  hint: string;
+  email: string;
+  password: string;
+}
+
+// The vendor app lists seller accounts, the customer app customers and riders.
+function demoAccounts(): DemoChip[] {
+  if (isCustomerApp) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { DEMO_ACCOUNTS } =
+      require("~/demo/customer") as typeof import("~/demo/customer");
+    return DEMO_ACCOUNTS.map((a) => ({ ...a, key: a.persona }));
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { DEMO_ACCOUNTS } = require("~/demo") as typeof import("~/demo");
+  return DEMO_ACCOUNTS.map((a) => ({ ...a, key: a.kind }));
+}
 
 interface DemoAccountsProps {
   /** Fills the login form with the account's email and password. */
@@ -16,9 +38,8 @@ export function DemoAccounts({ onPick }: DemoAccountsProps) {
   const [selected, setSelected] = useState<string | null>(null);
   if (!isDemoMode) return null;
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { DEMO_ACCOUNTS } = require("~/demo") as typeof import("~/demo");
-  const active = DEMO_ACCOUNTS.find((account) => account.kind === selected);
+  const accounts = demoAccounts();
+  const active = accounts.find((account) => account.key === selected);
 
   return (
     <View className="gap-2 rounded-2xl border border-dashed border-primary bg-tint p-3">
@@ -30,17 +51,17 @@ export function DemoAccounts({ onPick }: DemoAccountsProps) {
         showsHorizontalScrollIndicator={false}
         contentContainerClassName="gap-2"
       >
-        {DEMO_ACCOUNTS.map((account) => (
+        {accounts.map((account) => (
           <Pressable
-            key={account.kind}
+            key={account.key}
             accessibilityRole="button"
             onPress={() => {
-              setSelected(account.kind);
+              setSelected(account.key);
               onPick({ email: account.email, password: account.password });
             }}
             className={cn(
               "min-h-9 justify-center rounded-full border px-3.5",
-              selected === account.kind
+              selected === account.key
                 ? "border-primary bg-primary"
                 : "border-border bg-card",
             )}
@@ -48,7 +69,7 @@ export function DemoAccounts({ onPick }: DemoAccountsProps) {
             <Text
               className={cn(
                 "font-sans-semibold text-[13px]",
-                selected === account.kind && "text-primary-foreground",
+                selected === account.key && "text-primary-foreground",
               )}
             >
               {account.label}
