@@ -74,16 +74,15 @@ jobs:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_S3_PUBLIC_BASE_URL: ${{ secrets.AWS_S3_PUBLIC_BASE_URL }}
           DISCORD_BUILD_WEBHOOK_URL: ${{ secrets.DISCORD_BUILD_WEBHOOK_URL }}
+        # Sentry values are deliberately not required: a test APK builds and runs
+        # without them (app.config.ts only warns and skips error reporting and
+        # source-map upload). They are enforced for store releases in
+        # release-android.yml. If set, the DSNs are still sanity-checked below.
         run: |
           missing=0
           required_vars=(
             EXPO_PUBLIC_API_BASE_URL
-            EXPO_PUBLIC_SENTRY_DSN_CUSTOMER
-            EXPO_PUBLIC_SENTRY_DSN_VENDOR
             EXPO_PUBLIC_ENABLE_THEME_SWITCH
-            SENTRY_AUTH_TOKEN
-            SENTRY_PROJECT_CUSTOMER
-            SENTRY_PROJECT_VENDOR
             AWS_ACCESS_KEY_ID
             AWS_SECRET_ACCESS_KEY
             AWS_REGION
@@ -104,8 +103,12 @@ jobs:
           fi
 
           case "$EXPO_PUBLIC_API_BASE_URL" in https://*) ;; *) echo "::error::EXPO_PUBLIC_API_BASE_URL must start with https://"; exit 1 ;; esac
-          case "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_CUSTOMER must start with https://"; exit 1 ;; esac
-          case "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_VENDOR must start with https://"; exit 1 ;; esac
+          if [[ -n "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" ]]; then
+            case "$EXPO_PUBLIC_SENTRY_DSN_CUSTOMER" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_CUSTOMER must start with https://"; exit 1 ;; esac
+          fi
+          if [[ -n "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" ]]; then
+            case "$EXPO_PUBLIC_SENTRY_DSN_VENDOR" in https://*) ;; *) echo "::error::EXPO_PUBLIC_SENTRY_DSN_VENDOR must start with https://"; exit 1 ;; esac
+          fi
           case "$AWS_S3_PUBLIC_BASE_URL" in http://*|https://*) ;; *) echo "::error::AWS_S3_PUBLIC_BASE_URL must start with http:// or https://"; exit 1 ;; esac
           case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
 
