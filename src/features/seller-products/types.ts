@@ -1,6 +1,9 @@
 /** `listing_type` values the vendor catalogue handles. */
 export type ListingType = "product" | "food";
 
+/** Every `listing_type` the list endpoint accepts. */
+export type AnyListingType = ListingType | "service";
+
 export type FoodDay =
   | "monday"
   | "tuesday"
@@ -46,6 +49,40 @@ export interface FoodAvailabilityInfo {
   timezone: string;
 }
 
+export type ServiceType =
+  | "one_time"
+  | "recurring"
+  | "consultation"
+  | "installation"
+  | "repair_maintenance"
+  | "training_coaching"
+  | "custom"
+  | "on_site"
+  | "remote_virtual"
+  | "package"
+  | "subscription"
+  | "emergency";
+
+export type ServicePricingType =
+  | "fixed_price"
+  | "hourly_rate"
+  | "daily_rate"
+  | "weekly_rate"
+  | "monthly_subscription"
+  | "custom_quote"
+  | "free_consultation";
+
+export type ServiceSlotMode = "unlimited" | "limited";
+
+/** `service_meta` as ProductService::normalizeServiceMeta stores it. */
+export interface ServiceMeta {
+  service_type?: ServiceType;
+  pricing_type?: ServicePricingType;
+  location?: string;
+  service_area?: string;
+  slot_mode?: ServiceSlotMode;
+}
+
 /** One row of GET /seller/products/all (Seller\ProductCollection). */
 export interface SellerProduct {
   id: number;
@@ -54,6 +91,12 @@ export interface SellerProduct {
   listing_type: ListingType | "service" | null;
   /** Empty array / null for non-food rows. */
   food_meta: FoodMeta | [] | null;
+  /**
+   * TODO(backend): Seller\ProductCollection does not return `service_meta`
+   * yet, so this is undefined today. Service rows then fall back to the plain
+   * price and the category name until the field is added.
+   */
+  service_meta?: ServiceMeta | [] | null;
   food_availability: FoodAvailabilityInfo | null;
   /** Absolute URL (the server returns a placeholder when there is no photo). */
   thumbnail_img: string;
@@ -87,7 +130,7 @@ export interface SellerProductsPage {
 }
 
 export interface ListProductsParams {
-  listing_type: ListingType;
+  listing_type: AnyListingType;
   search?: string;
   page: number;
 }
@@ -126,14 +169,24 @@ export interface FoodMetaPayload {
   manual_override: ManualOverride;
 }
 
+/** service_meta sent on create (ProductRequest `service_meta.*` rules). */
+export interface ServiceMetaPayload {
+  service_type: ServiceType;
+  pricing_type: ServicePricingType;
+  location?: string;
+  service_area?: string;
+  slot_mode: ServiceSlotMode;
+}
+
 /** Body of POST /seller/products/add. */
 export interface CreateProductPayload {
-  listing_type: ListingType;
+  listing_type: AnyListingType;
   name: string;
   category_ids: number[];
   category_id: number;
   unit_price: number;
-  unit: string;
+  /** Products and food only (the web service form has no unit). */
+  unit?: string;
   current_stock?: number;
   /** Comma-separated upload ids. */
   photos?: string;
@@ -144,6 +197,10 @@ export interface CreateProductPayload {
   button: "publish" | "unpublish" | "draft";
   cash_on_delivery?: 0 | 1;
   food_meta?: FoodMetaPayload;
+  /** Services: required by the API, "Minimum Booking Qty" on the web form. */
+  min_qty?: number;
+  description?: string;
+  service_meta?: ServiceMetaPayload;
 }
 
 export interface ChangeStatusInput {

@@ -12,16 +12,16 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 export const normaliseNumber = (value: string) =>
   value.replace(/,/g, "").trim();
 
-const nameField = (noun: string) =>
+export const nameField = (noun: string) =>
   z
     .string()
     .trim()
     .min(1, `Enter the ${noun} name`)
     .max(NAME_MAX, `Keep the name under ${NAME_MAX} characters`);
 
-const categoryField = z.string().min(1, "Choose a category");
+export const categoryField = z.string().min(1, "Choose a category");
 
-const priceField = z
+export const priceField = z
   .string()
   .trim()
   .min(1, "Enter a price")
@@ -42,7 +42,7 @@ const unitField = z
   .max(UNIT_MAX, `Keep it under ${UNIT_MAX} characters`)
   .regex(/^[A-Za-z\s]+$/, "Letters only, no numbers.");
 
-const wholeNumber = (message: string) =>
+export const wholeNumber = (message: string) =>
   z.string().trim().regex(/^\d+$/, message);
 
 export const productSchema = z.object({

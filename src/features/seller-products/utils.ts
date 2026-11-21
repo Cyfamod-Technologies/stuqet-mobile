@@ -35,6 +35,11 @@ export function flattenCategories(
 // List row display
 // ---------------------------------------------------------------------------
 
+/** "₦3,000.00" -> "₦3,000" (whole amounts drop the .00; others stay as given). */
+export function formatListPrice(price: string): string {
+  return price.replace(/\.00$/, "");
+}
+
 export function foodMetaOf(product: SellerProduct): FoodMeta | null {
   const meta = product.food_meta;
   return meta && !Array.isArray(meta) ? meta : null;

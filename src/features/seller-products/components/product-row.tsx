@@ -2,12 +2,13 @@ import { memo, useState } from "react";
 import { Image, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SHADOWS, useThemeColors } from "~/lib/colors";
+import { cn } from "~/lib/utils/helpers";
 import { Badge } from "~/components/ui/badge";
 import { Card } from "~/components/ui/card";
 import { Text } from "~/components/ui/text";
 import { Toggle } from "~/components/ui/toggle";
 import type { SellerProduct } from "../types";
-import { availabilityLine, rowBadge } from "../utils";
+import { availabilityLine, formatListPrice, rowBadge } from "../utils";
 
 interface ProductRowProps {
   product: SellerProduct;
@@ -52,7 +53,7 @@ function ProductRowBase({ product, onTogglePublished, busy }: ProductRowProps) {
         <View className="flex-row items-center gap-1.5">
           <Text
             className="shrink font-sans-bold text-base leading-5"
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {product.name}
           </Text>
@@ -70,9 +71,17 @@ function ProductRowBase({ product, onTogglePublished, busy }: ProductRowProps) {
             className="shrink font-sans-extrabold text-base"
             numberOfLines={1}
           >
-            {product.price}
+            {formatListPrice(product.price)}
           </Text>
-          <Badge label={badge.label} variant={badge.tone} />
+          <Badge
+            label={badge.label}
+            variant={badge.tone}
+            className={badge.tone === "outline" ? "bg-secondary" : undefined}
+            textClassName={cn(
+              "font-sans-bold leading-[14px]",
+              badge.tone === "outline" && "text-foreground",
+            )}
+          />
         </View>
         {isFood ? (
           <Text tone="muted" className="font-sans-medium text-[13px] leading-4">

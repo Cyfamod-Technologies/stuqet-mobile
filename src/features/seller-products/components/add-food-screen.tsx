@@ -7,8 +7,6 @@ import { FormField } from "~/components/forms/form-field";
 import { Button } from "~/components/ui/button";
 import { Card } from "~/components/ui/card";
 import { Notice } from "~/components/ui/notice";
-import { SegmentedControl } from "~/components/ui/segmented-control";
-import { StepProgress } from "~/components/ui/step-progress";
 import { Text } from "~/components/ui/text";
 import { Toggle } from "~/components/ui/toggle";
 import { PhotoPicker } from "~/features/seller-uploads/components/photo-picker";
@@ -23,10 +21,16 @@ import {
   foodSchema,
   type FoodFormValues,
 } from "../schemas";
+import type { AvailabilityMode, PrepTimeUnit, StockMode } from "../types";
 import { buildFoodPayload } from "../utils";
 import { CategoryField } from "./category-field";
 import { Chip } from "./chip";
 import { FormScreen } from "./form-screen";
+import {
+  PillSegmentedControl,
+  type PillSegmentOption,
+} from "./pill-segmented-control";
+import { StepBar } from "./step-bar";
 import { TimeField } from "./time-field";
 
 /** Server validation keys -> form fields (`*` = any array index). */
@@ -51,15 +55,15 @@ const FIELD_MAP = {
   "food_meta.time_slots.*.end": "time_to",
 } as const;
 
-const PREP_UNITS = [
+const PREP_UNITS: PillSegmentOption<PrepTimeUnit>[] = [
   { value: "minutes", label: "Min" },
   { value: "hours", label: "Hours" },
 ];
-const STOCK_MODES = [
+const STOCK_MODES: PillSegmentOption<StockMode>[] = [
   { value: "unlimited", label: "Unlimited" },
   { value: "limited", label: "Limited" },
 ];
-const AVAILABILITY_MODES = [
+const AVAILABILITY_MODES: PillSegmentOption<AvailabilityMode>[] = [
   { value: "always", label: "Always" },
   { value: "scheduled", label: "Scheduled" },
 ];
@@ -137,7 +141,7 @@ export function AddFoodScreen() {
         title="Add food"
         footer={<Button onPress={() => void goNext()}>Continue</Button>}
       >
-        <StepProgress step={1} total={2} label="Details" />
+        <StepBar step={1} total={2} label="Details" />
         {serverNoticeView}
         {photoNotice}
 
@@ -226,10 +230,11 @@ export function AddFoodScreen() {
             render={({ field }) => (
               <View className="flex-1 gap-1.5">
                 <Text variant="label">Unit</Text>
-                <SegmentedControl
+                <PillSegmentedControl
                   options={PREP_UNITS}
                   value={field.value}
                   onChange={field.onChange}
+                  accessibilityLabel="Prep time unit"
                 />
               </View>
             )}
@@ -254,7 +259,7 @@ export function AddFoodScreen() {
         </Button>
       }
     >
-      <StepProgress step={2} total={2} label="Price and availability" />
+      <StepBar step={2} total={2} label="Price and availability" />
       {serverNoticeView}
       {photoNotice}
 
@@ -281,17 +286,12 @@ export function AddFoodScreen() {
 
       <View className="gap-1.5">
         <Text variant="label">Stock</Text>
-        <SegmentedControl
+        <PillSegmentedControl
           options={STOCK_MODES}
           value={stockMode}
+          accessibilityLabel="Stock"
           onChange={(value) =>
-            setValue(
-              "stock_mode",
-              value === "limited" ? "limited" : "unlimited",
-              {
-                shouldValidate: true,
-              },
-            )
+            setValue("stock_mode", value, { shouldValidate: true })
           }
         />
       </View>
@@ -309,15 +309,12 @@ export function AddFoodScreen() {
 
       <View className="gap-1.5">
         <Text variant="label">Availability</Text>
-        <SegmentedControl
+        <PillSegmentedControl
           options={AVAILABILITY_MODES}
           value={availabilityMode}
+          accessibilityLabel="Availability"
           onChange={(value) =>
-            setValue(
-              "availability_mode",
-              value === "scheduled" ? "scheduled" : "always",
-              { shouldValidate: true },
-            )
+            setValue("availability_mode", value, { shouldValidate: true })
           }
         />
       </View>

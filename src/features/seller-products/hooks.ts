@@ -16,6 +16,7 @@ import {
   isPackageLimitError,
 } from "./errors";
 import type {
+  AnyListingType,
   ChangeStatusInput,
   ListingType,
   SellerProductsPage,
@@ -23,7 +24,7 @@ import type {
 import { flattenCategories } from "./utils";
 
 /** Package-limit failures get a clear message; everything else the default. */
-function reportError(error: unknown) {
+export function reportError(error: unknown) {
   if (isPackageLimitError(error)) {
     notifyError({
       message: "Package limit reached",
@@ -46,7 +47,7 @@ export function useDebouncedValue<T>(value: T, delay = 400): T {
 }
 
 /** Infinite list of one listing type (10 per page, server-side search). */
-export function useSellerProducts(listingType: ListingType, search: string) {
+export function useSellerProducts(listingType: AnyListingType, search: string) {
   return useInfiniteQuery({
     queryKey: QUERY_KEYS.seller.products.list({
       listing_type: listingType,

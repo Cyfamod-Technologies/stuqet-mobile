@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   ScrollView,
   View,
@@ -13,9 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeColors } from "~/lib/colors";
 import { Button } from "~/components/ui/button";
 import { EmptyState } from "~/components/ui/empty-state";
-import { Input } from "~/components/ui/input";
-import { ScreenHeader } from "~/components/ui/screen-header";
-import { SegmentedControl } from "~/components/ui/segmented-control";
 import { Skeleton } from "~/components/ui/skeleton";
 import { LISTING_LABELS } from "../constants";
 import {
@@ -36,7 +32,10 @@ import {
 } from "../utils";
 import { AddChooserSheet } from "./add-chooser-sheet";
 import { Chip } from "./chip";
+import { ListHeader } from "./list-header";
+import { PillSegmentedControl } from "./pill-segmented-control";
 import { ProductRow } from "./product-row";
+import { SearchField } from "./search-field";
 
 const TABS = (Object.keys(LISTING_LABELS) as ListingType[]).map((value) => ({
   value,
@@ -114,8 +113,8 @@ export function CatalogueScreen() {
     );
   };
 
-  const changeTab = (value: string) => {
-    setType(value as ListingType);
+  const changeTab = (value: ListingType) => {
+    setType(value);
     setSearchText("");
   };
 
@@ -204,47 +203,24 @@ export function CatalogueScreen() {
   return (
     <View className="flex-1">
       <View className="gap-4 px-5 pb-4" style={{ paddingTop: insets.top + 12 }}>
-        <ScreenHeader
+        <ListHeader
           title="Catalogue"
           subtitle={catalogueSummary(counts.products, counts.food)}
         />
 
-        <SegmentedControl options={TABS} value={type} onChange={changeTab} />
+        <PillSegmentedControl
+          options={TABS}
+          value={type}
+          onChange={changeTab}
+          size="lg"
+          accessibilityLabel="Catalogue type"
+        />
 
-        <View>
-          <View
-            pointerEvents="none"
-            className="absolute left-4 top-0 z-10 h-field justify-center"
-          >
-            <Ionicons
-              name="search"
-              size={20}
-              color={colors["muted-foreground"]}
-            />
-          </View>
-          <Input
-            value={searchText}
-            onChangeText={setSearchText}
-            placeholder={labels.search}
-            accessibilityLabel={labels.search}
-            className="pl-8"
-            returnKeyType="search"
-            autoCapitalize="none"
-            autoCorrect={false}
-            endAdornment={
-              searchText ? (
-                <Pressable
-                  onPress={() => setSearchText("")}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel="Clear search"
-                >
-                  <Ionicons name="close-circle" size={20} color={colors.hint} />
-                </Pressable>
-              ) : undefined
-            }
-          />
-        </View>
+        <SearchField
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholder={labels.search}
+        />
 
         <ScrollView
           horizontal
