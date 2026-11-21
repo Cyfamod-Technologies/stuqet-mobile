@@ -61,6 +61,17 @@ function rejectWhenResultFalse(instance: AxiosInstance) {
 rejectWhenResultFalse(axiosInstance);
 rejectWhenResultFalse(axiosPrivate);
 
+// Demo mode (vendor app): answer every request from the bundled sample data.
+// The literal env check lets Metro drop src/demo from release builds.
+if (
+  process.env.EXPO_PUBLIC_DEMO_MODE === "true" &&
+  process.env.EXPO_PUBLIC_ROUTE === "vendor"
+) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { installDemoAdapter } = require("~/demo") as typeof import("~/demo");
+  installDemoAdapter([axiosInstance, axiosPrivate]);
+}
+
 async function logout() {
   await deleteToken();
   router.replace("/(auth)/login");

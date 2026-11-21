@@ -16,6 +16,8 @@ declare namespace NodeJS {
     readonly EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN?: string;
     readonly EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS?: string;
     readonly EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE?: string;
+    /** Vendor app: "true" runs the app on bundled sample data, no API (src/demo). */
+    readonly EXPO_PUBLIC_DEMO_MODE?: string;
     /** Vendor app: web page where a seller registers a shop (the backend has
      * no seller registration API, so "Create a shop" opens this in the
      * browser). Falls back to `<api origin>/shop/registration/verification`. */
