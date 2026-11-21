@@ -1,6 +1,8 @@
-import { Image, Pressable, ScrollView, View } from "react-native";
+import { useState } from "react";
+import { Image, Platform, Pressable, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeColors } from "~/lib/colors";
+import { MediaPickerSheet } from "~/components/ui/media-picker-sheet";
 import { Text } from "~/components/ui/text";
 import type { PhotoUploads } from "../hooks";
 import type { PhotoItem } from "../types";
@@ -9,18 +11,26 @@ interface PhotoPickerProps {
   uploads: PhotoUploads;
   label?: string;
   error?: string;
+  /** Tile edge: 80px (products, food) or 88px (services board). */
+  size?: "md" | "lg";
 }
 
-const TILE = "h-20 w-20 rounded-[18px]";
+const TILE_SIZES = { md: "h-20 w-20", lg: "h-[88px] w-[88px]" } as const;
+
+// iOS cannot present the camera or library while the sheet's modal is still
+// dismissing, so give it a moment before launching the picker.
+const SHEET_DISMISS_DELAY = Platform.OS === "ios" ? 450 : 0;
 
 function PhotoTile({
   photo,
   index,
+  tile,
   onRetry,
   onRemove,
 }: {
   photo: PhotoItem;
   index: number;
+  tile: string;
   onRetry: () => void;
   onRemove: () => void;
 }) {
@@ -34,19 +44,19 @@ function PhotoTile({
 
   return (
     <View
-      className={`${TILE} overflow-visible`}
+      className={`${tile} overflow-visible rounded-[18px]`}
       accessible
       accessibilityLabel={`Photo ${index + 1}${index === 0 ? ", cover" : ""}, ${status}`}
     >
       <Image
         source={{ uri: photo.uri }}
-        className={`${TILE} border border-tint-border bg-tint`}
+        className={`${tile} rounded-[18px] border border-tint-border bg-tint`}
         resizeMode="cover"
       />
 
       {photo.status === "uploading" ? (
         <View
-          className={`${TILE} absolute items-center justify-center bg-black/40`}
+          className={`${tile} absolute items-center justify-center rounded-[18px] bg-black/40`}
         >
           <Text className="font-sans-bold text-sm text-white">
             {photo.progress}%
@@ -59,7 +69,7 @@ function PhotoTile({
           onPress={onRetry}
           accessibilityRole="button"
           accessibilityLabel={`Retry uploading photo ${index + 1}`}
-          className={`${TILE} bg-destructive-tint/95 absolute items-center justify-center gap-0.5 border border-destructive`}
+          className={`${tile} bg-destructive-tint/95 absolute items-center justify-center gap-0.5 rounded-[18px] border border-destructive`}
         >
           <Ionicons
             name="refresh"
@@ -99,9 +109,17 @@ export function PhotoPicker({
   uploads,
   label = "Photos",
   error,
+  size = "md",
 }: PhotoPickerProps) {
   const colors = useThemeColors();
-  const { photos, canAddMore, max, pick, retry, remove } = uploads;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const { photos, canAddMore, max, takePhoto, pickFromLibrary, retry, remove } =
+    uploads;
+  const tile = TILE_SIZES[size];
+
+  const afterSheet = (action: () => Promise<void>) => () => {
+    setTimeout(() => void action(), SHEET_DISMISS_DELAY);
+  };
 
   return (
     <View className="gap-2">
@@ -121,11 +139,11 @@ export function PhotoPicker({
       >
         {canAddMore ? (
           <Pressable
-            onPress={() => void pick()}
+            onPress={() => setSheetOpen(true)}
             accessibilityRole="button"
             accessibilityLabel="Add photo"
-            accessibilityHint={`Choose up to ${max} photos from your library`}
-            className={`${TILE} border-primary/50 items-center justify-center gap-0.5 border-[1.5px] border-dashed bg-tint active:opacity-80`}
+            accessibilityHint={`Take a photo or choose up to ${max} from your library`}
+            className={`${tile} border-primary/50 items-center justify-center gap-0.5 rounded-[18px] border-[1.5px] border-dashed bg-tint active:opacity-80`}
           >
             <Ionicons
               name="camera-outline"
@@ -142,11 +160,18 @@ export function PhotoPicker({
             key={photo.key}
             photo={photo}
             index={index}
+            tile={tile}
             onRetry={() => retry(photo.key)}
             onRemove={() => remove(photo.key)}
           />
         ))}
       </ScrollView>
+      <MediaPickerSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onTakePhoto={afterSheet(takePhoto)}
+        onChooseLibrary={afterSheet(pickFromLibrary)}
+      />
       {error ? (
         <Text className="font-sans-medium text-xs text-destructive-text">
           {error}

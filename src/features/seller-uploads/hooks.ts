@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { notifyError } from "~/lib/utils/toast";
 import UploadService from "./api";
+import { ensureCameraPermission } from "./camera";
 import { MAX_PHOTOS, MAX_PHOTO_BYTES, PHOTO_QUALITY } from "./constants";
 import type { PhotoItem } from "./types";
 import {
@@ -56,24 +57,12 @@ export function usePhotoUploads(max: number = MAX_PHOTOS) {
     [patch],
   );
 
-  const pick = useCallback(async () => {
-    const remaining = max - photos.length;
-    if (remaining <= 0) return;
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsMultipleSelection: remaining > 1,
-        selectionLimit: remaining,
-        quality: PHOTO_QUALITY,
-        base64: true,
-        exif: false,
-      });
-      if (result.canceled) return;
-
+  /** Validates, previews and uploads the assets returned by a picker. */
+  const addAssets = useCallback(
+    (assets: ImagePicker.ImagePickerAsset[], remaining: number) => {
       let rejected = 0;
       const added: PhotoItem[] = [];
-      result.assets.slice(0, remaining).forEach((asset, index) => {
+      assets.slice(0, remaining).forEach((asset, index) => {
         if (!asset.base64 || base64ByteLength(asset.base64) > MAX_PHOTO_BYTES) {
           rejected += 1;
           return;
@@ -102,10 +91,48 @@ export function usePhotoUploads(max: number = MAX_PHOTOS) {
 
       setPhotos((prev) => [...prev, ...added]);
       added.forEach((photo) => void upload(photo));
+    },
+    [photos.length, upload],
+  );
+
+  const pickFromLibrary = useCallback(async () => {
+    const remaining = max - photos.length;
+    if (remaining <= 0) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: remaining > 1,
+        selectionLimit: remaining,
+        quality: PHOTO_QUALITY,
+        base64: true,
+        exif: false,
+      });
+      if (!result.canceled) addAssets(result.assets, remaining);
     } catch {
       notifyError({ message: "Could not open your photos. Please try again." });
     }
-  }, [max, photos.length, upload]);
+  }, [addAssets, max, photos.length]);
+
+  const takePhoto = useCallback(async () => {
+    const remaining = max - photos.length;
+    if (remaining <= 0) return;
+
+    try {
+      if (!(await ensureCameraPermission())) return;
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: PHOTO_QUALITY,
+        base64: true,
+        exif: false,
+      });
+      if (!result.canceled) addAssets(result.assets, remaining);
+    } catch {
+      notifyError({
+        message: "Could not open the camera. Please try again.",
+      });
+    }
+  }, [addAssets, max, photos.length]);
 
   const retry = useCallback(
     (key: string) => {
@@ -121,7 +148,8 @@ export function usePhotoUploads(max: number = MAX_PHOTOS) {
 
   return {
     photos,
-    pick,
+    pickFromLibrary,
+    takePhoto,
     retry,
     remove,
     max,
