@@ -151,7 +151,7 @@ def build_content(mode, is_preflight, route, tag):
         "🚀 **Play Store Android release submitted**\n"
         f"Track: `{os.environ['TRACK']}`\n"
         f"Build time: {elapsed} | Peak memory: {memory_part}\n"
-        f"Runner: `self-hosted` ({cpu_cores} CPU cores, {memory_total} RAM)\n"
+        f"Runner: `github-hosted` ({cpu_cores} CPU cores, {memory_total} RAM)\n"
         f"Disk available before build: {disk_available}\n"
         f"{branch_or_pr}"
         f"Run logs: {run_url()}"

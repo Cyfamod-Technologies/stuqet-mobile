@@ -28,22 +28,22 @@ secrets.
 cp .env.example .env.local
 ```
 
-| Variable                             | Required         | Description                                                                                                                                                                              |
-| ------------------------------------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_ROUTE`                  | No               | Which app a build targets: `customer` (default) or `vendor`. Picks the route tree, app identity and brand. Set by the `dev:*` scripts and the `*-customer` / `*-vendor` EAS profiles.    |
-| `EAS_PROJECT_ID_CUSTOMER`            | No               | EAS project id for the customer app (build-time). Set after running `eas init` for that app.                                                                                             |
-| `EAS_PROJECT_ID_VENDOR`              | No               | EAS project id for the vendor app (build-time).                                                                                                                                          |
-| `EAS_OWNER`                          | No               | Expo account/organization that owns both EAS projects (build-time).                                                                                                                      |
-| `EXPO_PUBLIC_API_BASE_URL`           | Yes              | Base URL of your backend API. Used by the Axios clients in `src/lib/config/axios.ts`.                                                                                                    |
-| `EXPO_PUBLIC_SYSTEM_KEY`             | Yes (vendor app) | The backend's `app.system_key`. Sent as the `System-Key` header on every request; without it the API answers "Request not found!". Set `EXPO_PUBLIC_API_BASE_URL` to the `/api/v2` root. |
-| `EXPO_PUBLIC_SENTRY_DSN`             | No               | Sentry DSN read by `src/lib/config/sentry.ts`. Sentry only initializes for `preview`/`production` builds when set.                                                                       |
-| `EXPO_PUBLIC_ENABLE_THEME_SWITCH`    | No               | Shows the light/dark theme switch. Set to `"false"` to hide it and lock the theme (default light). Read in `src/lib/config/features.ts`.                                                 |
-| `EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN`    | No               | Shows the Google / Apple buttons on the login screen. Set to `"false"` to hide them until OAuth is wired up (default shown). Read in `src/lib/config/features.ts`.                       |
-| `EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE` | No               | Vendor payout form: when `"true"` the account name is filled from the bank lookup (`POST /seller/bank/resolve`, not in the backend yet). Default off: the name is typed.                 |
-| `EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS` | No               | Vendor app: shows support tickets in More. Default off, because the mobile API has no ticket endpoints.                                                                                  |
-| `EXPO_PUBLIC_WEB_REGISTRATION_URL`   | No               | Vendor app: web page opened by "Create a shop" (shop registration is web-only). Falls back to the API origin plus `/shop/registration/verification`.                                     |
-| `EXPO_PUBLIC_SUPPORT_EMAIL`          | No               | Vendor app: address used by "Contact support".                                                                                                                                           |
-| `EXPO_PUBLIC_DEMO_MODE`              | No               | Vendor app: `"true"` runs the app on the bundled sample data in `src/demo` (no API, no network). Use `npm run dev:vendor:demo`. Never set it in a production build.                      |
+| Variable                             | Required         | Description                                                                                                                                                                                                                                         |
+| ------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_ROUTE`                  | No               | Which app a build targets: `customer` (default) or `vendor`. Picks the route tree, app identity and brand. Set by the `dev:*` scripts and the `*-customer` / `*-vendor` EAS profiles.                                                               |
+| `EAS_PROJECT_ID_CUSTOMER`            | No               | EAS project id for the customer app (build-time). Set after running `eas init` for that app.                                                                                                                                                        |
+| `EAS_PROJECT_ID_VENDOR`              | No               | EAS project id for the vendor app (build-time).                                                                                                                                                                                                     |
+| `EAS_OWNER`                          | No               | Expo account/organization that owns both EAS projects (build-time).                                                                                                                                                                                 |
+| `EXPO_PUBLIC_API_BASE_URL`           | Yes              | Base URL of your backend API. Used by the Axios clients in `src/lib/config/axios.ts`.                                                                                                                                                               |
+| `EXPO_PUBLIC_SYSTEM_KEY`             | Yes (vendor app) | The backend's `app.system_key`. Sent as the `System-Key` header on every request; without it the API answers "Request not found!". Set `EXPO_PUBLIC_API_BASE_URL` to the `/api/v2` root.                                                            |
+| `EXPO_PUBLIC_SENTRY_DSN`             | No               | Sentry DSN read by `src/lib/config/sentry.ts`. Sentry only initializes for `preview`/`production` builds when set.                                                                                                                                  |
+| `EXPO_PUBLIC_ENABLE_THEME_SWITCH`    | No               | Shows the light/dark theme switch. Set to `"false"` to hide it and lock the theme (default light). Read in `src/lib/config/features.ts`.                                                                                                            |
+| `EXPO_PUBLIC_ENABLE_SOCIAL_LOGIN`    | No               | Shows the Google / Apple buttons on the login screen. Set to `"false"` to hide them until OAuth is wired up (default shown). Read in `src/lib/config/features.ts`.                                                                                  |
+| `EXPO_PUBLIC_ENABLE_ACCOUNT_RESOLVE` | No               | Vendor payout form: when `"true"` the account name is filled from the bank lookup (`POST /seller/bank/resolve`, not in the backend yet). Default off: the name is typed.                                                                            |
+| `EXPO_PUBLIC_ENABLE_SUPPORT_TICKETS` | No               | Vendor app: shows support tickets in More. Default off, because the mobile API has no ticket endpoints.                                                                                                                                             |
+| `EXPO_PUBLIC_WEB_REGISTRATION_URL`   | No               | Vendor app: web page opened by "Create a shop" (shop registration is web-only). Falls back to the API origin plus `/shop/registration/verification`.                                                                                                |
+| `EXPO_PUBLIC_SUPPORT_EMAIL`          | No               | Vendor app: address used by "Contact support".                                                                                                                                                                                                      |
+| `EXPO_PUBLIC_DEMO_MODE`              | No               | `"true"` runs the app on bundled sample data (no API, no network): the vendor data in `src/demo` (`npm run dev:vendor:demo`) or the customer + rider data in `src/demo/customer` (`npm run dev:customer:demo`). Never set it in a production build. |
 
 > `APP_VARIANT` (separate from the `EXPO_PUBLIC_*` vars) selects the native app
 > identity — bundle id, app name, and URL scheme — in `app.config.ts`. It is set
@@ -72,16 +72,18 @@ Search the codebase for `TODO` and set:
 
 ## Local development
 
-| Command                | What it does                                                            |
-| ---------------------- | ----------------------------------------------------------------------- |
-| `npm start`            | Starts the Expo dev server / Metro bundler.                             |
-| `npm run dev`          | Starts Expo with `APP_VARIANT=development` (default app: customer).     |
-| `npm run dev:customer` | Starts the customer + rider app (`EXPO_PUBLIC_ROUTE=customer`).         |
-| `npm run dev:vendor`   | Starts the vendor app (`EXPO_PUBLIC_ROUTE=vendor`).                     |
-| `npm run start:tunnel` | Starts the dev server over an Expo tunnel (use on a different network). |
-| `npm run ios`          | Starts and opens the app in the iOS Simulator.                          |
-| `npm run android`      | Starts and opens the app in the Android emulator.                       |
-| `npm run web`          | Starts the app in a browser (React Native Web).                         |
+| Command                        | What it does                                                            |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| `npm start`                    | Starts the Expo dev server / Metro bundler.                             |
+| `npm run dev`                  | Starts Expo with `APP_VARIANT=development` (default app: customer).     |
+| `npm run dev:customer`         | Starts the customer + rider app (`EXPO_PUBLIC_ROUTE=customer`).         |
+| `npm run dev:vendor`           | Starts the vendor app (`EXPO_PUBLIC_ROUTE=vendor`).                     |
+| `npm run dev:customer:demo`    | Customer + rider app on demo data (see `src/demo/customer/README.md`).  |
+| `npm run demo:images:customer` | Regenerates the customer and rider demo illustrations (Pillow).         |
+| `npm run start:tunnel`         | Starts the dev server over an Expo tunnel (use on a different network). |
+| `npm run ios`                  | Starts and opens the app in the iOS Simulator.                          |
+| `npm run android`              | Starts and opens the app in the Android emulator.                       |
+| `npm run web`                  | Starts the app in a browser (React Native Web).                         |
 
 ### Use a development build, not Expo Go
 
@@ -100,7 +102,8 @@ project in that client.
 | `npm run typecheck` | `tsc --noEmit`.                                                                |
 | `npm run build`     | Export the JS bundle for **both** apps (`build:customer` then `build:vendor`). |
 
-These four run in CI on every PR into `main` (`.github/workflows/ci.yml`).
+The first three run in CI on every PR into `main` (`.github/workflows/ci.yml`);
+PRs into `prod` skip them, since only `main` can open one.
 
 ## EAS builds
 
@@ -176,17 +179,21 @@ for Stuqet Vendor.
 | `APP_VERSION_PUBLISH_KEY`                                                                             | Optional: publishes the build number to the backend after a release.                                                                                                                                                                                |
 | `GITLEAKS_LICENSE`                                                                                    | Required for this organization-owned repository's Gitleaks Action. Get the key from [gitleaks.io](https://gitleaks.io), then add it under **Settings → Secrets and variables → Actions**. `.github/workflows/security.yml` passes it to the action. |
 
-Repository **variables**: `ANDROID_UPLOAD_SHA1_CUSTOMER` and
-`ANDROID_UPLOAD_SHA1_VENDOR` (the upload-key SHA-1 fingerprints),
-`PLAY_STORE_TRACK_CUSTOMER` and `PLAY_STORE_TRACK_VENDOR` (the Play track each
-release publishes to), and optionally `RUNNER_OS` for a self-hosted runner.
+Also needed for iOS releases (`release-ios.yml`):
 
-Also fill in `.github/CODEOWNERS` and the approver list in
-`handle-release-approval.yml` — the release gate refuses every approval until
-that list is set.
+| Secret / variable                                         | Used for                                                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `EXPO_TOKEN` (secret)                                     | Expo robot access token used to run `eas build` / `eas submit`.                       |
+| `EAS_PROJECT_ID_CUSTOMER`, `EAS_PROJECT_ID_VENDOR` (vars) | EAS project ids; `app.config.ts` reads them to resolve the project. Secrets work too. |
+| `EAS_OWNER` (var)                                         | Expo account/organization that owns both projects.                                    |
+
+Repository **variables**: `ANDROID_UPLOAD_SHA1_CUSTOMER` and
+`ANDROID_UPLOAD_SHA1_VENDOR` (the upload-key SHA-1 fingerprints). The Play track
+is chosen each time you run **Release — Build & Publish Android**, so there is
+no per-app track variable.
 
 ## Deployment
 
 Branching, preview vs production distribution, and EAS Workflows are documented
-in [dev.md](./dev.md). In short: PRs go into `dev`; merging into `main` runs the
+in [dev.md](./dev.md). In short: PRs go into `main`; merging into `main` runs the
 preview pipeline; promoting to `prod` runs the production pipeline.

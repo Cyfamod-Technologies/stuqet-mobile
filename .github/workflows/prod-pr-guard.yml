@@ -1,0 +1,55 @@
+name: Prod PR Guard
+
+# prod may only ever receive code that already went through main. This workflow
+# is the enforcement, because GitHub cannot express it: branch protection and
+# rulesets have no "restrict which branch a PR comes from" setting at all.
+#
+# So this is a check, not a lock. Unless it is marked as a required status
+# check on prod it cannot stop a determined admin from clicking Merge on a red
+# PR — it makes the wrong thing visibly wrong instead of silently allowed.
+# Mark the "Only main may target prod" job as required in prod's branch
+# protection to make it a real gate.
+#
+# Deliberately tiny: no checkout, no Node, no install. It reads two values from
+# the event payload and exits, so it adds seconds to a prod PR rather than
+# re-running the CI that main already passed.
+
+on:
+  pull_request:
+    branches:
+      - prod
+
+concurrency:
+  group: prod-pr-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: "Only main may target prod"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Verify the PR comes from main in this repository
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          # The repo check is not redundant with the branch check: a fork can
+          # have its own branch called "main", which would otherwise satisfy
+          # HEAD_REF while carrying code that never passed this repo's CI.
+          if [[ "$HEAD_REPO" != "${{ github.repository }}" ]]; then
+            echo "::error::A PR into ${BASE_REF} must come from ${{ github.repository }}, not from the fork ${HEAD_REPO}."
+            exit 1
+          fi
+
+          if [[ "$HEAD_REF" != "main" ]]; then
+            echo "::error::Only main may open a PR into ${BASE_REF}. This PR is from '${HEAD_REF}'. Merge your work into main first (where CI runs), then open main → ${BASE_REF}."
+            exit 1
+          fi
+
+          echo "PR is main → ${BASE_REF} within ${{ github.repository }}."

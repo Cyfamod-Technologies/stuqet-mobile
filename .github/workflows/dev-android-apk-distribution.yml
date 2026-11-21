@@ -1,9 +1,10 @@
 name: Dev — Build APKs and Upload to S3
 
 on:
+  # main only: dev no longer exists. This is the "merged to main" preview build.
   push:
     branches:
-      - dev
+      - main
     paths:
       - ".github/workflows/dev-android-apk-distribution.yml"
       - "app.config.ts"
@@ -30,28 +31,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # This comment used to claim customer and vendor "each get their own
-  # runner" and that this was why a Metro cache leak between them "can't
-  # happen." That was never actually true -- this org has exactly one
-  # self-hosted runner, so both matrix legs always ran sequentially on the
-  # same machine, sharing the same disk and the same Metro cache. Because
-  # metro.config.js never made EXPO_PUBLIC_ROUTE part of Metro's cache key,
-  # this shipped a real production bug: both apps showing customer's screens,
-  # since customer builds first and Metro had no reason to invalidate anything
-  # for the vendor build after it. Fixed at the actual source --
-  # metro.config.js now sets cacheVersion to the route, so a route switch
-  # can never again silently reuse another route's bundle, regardless of
-  # how many runners this ever ends up on.
+  # Each matrix leg (customer, vendor) gets its own fresh GitHub-hosted VM, so
+  # they never share a disk or a Metro cache. metro.config.js also sets
+  # cacheVersion to the route, so a route switch can never silently reuse
+  # another route's bundle on a machine that builds both (a local
+  # `npm run apk:all`).
   build-and-upload:
     name: "Build ${{ matrix.route }} APK, upload to S3"
-    # Always our self-hosted runner -- this workflow was the actual source
-    # of the Actions-minutes/storage spike that prompted setting one up (see
-    # the cache/storage fix PR). If both matrix legs land at once, the
-    # second one queues for a few minutes rather than running in parallel --
-    # acceptable at this repo's traffic, and simpler than a dynamic
-    # busy-check + fallback for a single-runner setup where the second job
-    # would have to queue either way.
-    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.notification_only != true }}
 
     permissions:
@@ -65,6 +52,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      # Standard ubuntu-latest runners leave ~14GB free. Android SDK + Gradle +
+      # node_modules fill that, and the post-job cache save then dies with "No
+      # space left on device". Drop unused preinstalled toolchains first.
+      - name: Free runner disk space
+        run: bash scripts/ci-free-runner-disk.sh
 
       - name: Validate required GitHub secrets
         env:
@@ -116,19 +109,12 @@ jobs:
           case "$AWS_S3_PUBLIC_BASE_URL" in http://*|https://*) ;; *) echo "::error::AWS_S3_PUBLIC_BASE_URL must start with http:// or https://"; exit 1 ;; esac
           case "$DISCORD_BUILD_WEBHOOK_URL" in https://discord.com/api/webhooks/*|https://discordapp.com/api/webhooks/*) ;; *) echo "::error::DISCORD_BUILD_WEBHOOK_URL must be a Discord webhook URL"; exit 1 ;; esac
 
-          # A non-empty check cannot tell a mis-pasted JSON credential apart. The
-          # Play publisher service-account key is a JSON blob downloaded from a Google
-          # console; checking its shape costs milliseconds and catches a bad paste
-          # here instead of partway through a long native build. Only pass/fail is
-          # printed; the value is never echoed.
-
       - name: Setup Node.js 24
         uses: actions/setup-node@v5
         with:
           node-version: 24
 
       - name: Cache npm dependencies
-        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
@@ -151,16 +137,18 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      # modules-2 + wrapper only. Caching all of ~/.gradle/caches also pulls in
+      # transforms/ and build-cache/, which are several GB, machine-specific,
+      # and the usual reason cache.tzst fills the disk.
       - name: Cache Gradle dependencies
-        if: runner.environment == 'github-hosted'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
-            ~/.gradle/caches
+            ~/.gradle/caches/modules-2
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('app.config.ts', 'package.json') }}
+          key: ${{ runner.os }}-gradle-modules-${{ hashFiles('app.config.ts', 'package.json') }}
           restore-keys: |
-            ${{ runner.os }}-gradle-
+            ${{ runner.os }}-gradle-modules-
 
       - name: Install Node dependencies
         run: npm ci
@@ -208,10 +196,9 @@ jobs:
           ps -eo pid,ppid,comm,%cpu,%mem,rss --sort=-%cpu | head -n 15
 
       - name: Ensure GNU time is available
-        # GitHub-hosted runner images ship /usr/bin/time preinstalled; a bare
-        # Ubuntu base (this self-hosted runner) doesn't -- it's a separate
-        # package, not the bash built-in `time` keyword. Install it only if
-        # it's actually missing, so this stays a no-op on hosted runners too.
+        # GitHub-hosted runner images ship /usr/bin/time preinstalled; this is
+        # only a safety net if a future image drops it (it is a separate
+        # package, not the bash built-in `time` keyword).
         run: |
           if [ ! -x /usr/bin/time ]; then
             sudo apt-get update -qq
@@ -397,9 +384,14 @@ jobs:
           SHORT_SHA: ${{ github.sha }}
         run: python3 scripts/notify-dev-apk-discord.py
 
+      - name: Trim Gradle cache before post-job save
+        if: always()
+        continue-on-error: true
+        run: bash scripts/ci-trim-gradle-cache.sh
+
   notify-existing-apks:
     name: "Notify Discord for existing S3 APKs"
-    runs-on: ${{ vars.RUNNER_OS || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.notification_only == true }}
 
     permissions:
