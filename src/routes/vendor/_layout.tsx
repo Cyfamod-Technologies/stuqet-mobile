@@ -2,7 +2,7 @@ import "./global.css";
 
 import { useEffect } from "react";
 import { View } from "react-native";
-import { Slot } from "expo-router";
+import { Slot, ThemeProvider } from "expo-router";
 import { useFonts } from "expo-font";
 import {
   Urbanist_400Regular,
@@ -19,12 +19,14 @@ import TanstackQueryProvider from "~/providers/tanstack-query";
 import { initSentry } from "~/lib/config/sentry";
 import { DebugOverlay } from "~/components/debug-overlay";
 import { OfflineBanner } from "~/components/offline-banner";
+import { ToastHost } from "~/components/ui/toast";
 import { OTAUpdateHandler } from "~/components/ota-update-handler";
 import { ForceUpdateModal } from "~/components/force-update-modal";
 import { isDebugOverlayEnabled } from "~/lib/debug-store";
 import { useThemeStore } from "~/lib/stores/theme-store";
 import { darkThemeVars, lightThemeVars } from "~/lib/theme-vars";
 import { Backdrop } from "~/components/backdrop";
+import { transparentNavigationTheme } from "~/lib/navigation-theme";
 import { useThemeColors } from "~/lib/colors";
 import { registerSessionExpiryHandler } from "~/features/auth/session-expiry";
 
@@ -70,9 +72,12 @@ export default function RootLayout() {
             <Backdrop />
             <OfflineBanner />
             <ForceUpdateModal />
-            <Slot />
+            <ThemeProvider value={transparentNavigationTheme}>
+              <Slot />
+            </ThemeProvider>
             <OTAUpdateHandler />
             {isDebugOverlayEnabled ? <DebugOverlay /> : null}
+            <ToastHost />
           </View>
         </TanstackQueryProvider>
       </GestureHandlerRootView>
