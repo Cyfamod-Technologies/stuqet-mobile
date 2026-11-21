@@ -1,69 +1,124 @@
-import { View } from "react-native";
-import { Link } from "expo-router";
-import { useForm } from "react-hook-form";
+import { Pressable, View } from "react-native";
+import { router } from "expo-router";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AuthScreen } from "~/components/auth/auth-screen";
-import { FormField } from "~/components/forms/form-field";
+import { DemoFill } from "~/components/demo-fill";
 import { Button } from "~/components/ui/button";
-import { HeroBadge } from "~/components/ui/hero-badge";
 import { Text } from "~/components/ui/text";
-import { useForgotPassword } from "~/features/auth/hooks";
+import { AuthField } from "~/features/auth/components/auth-field";
+import { AuthHeading } from "~/features/auth/components/auth-heading";
+import { AuthPage } from "~/features/auth/components/auth-page";
+import { PillTabs } from "~/features/auth/components/pill-tabs";
+import { StatusHero } from "~/features/auth/components/status-hero";
+import { useCustomerForgotPassword } from "~/features/auth/customer-hooks";
 import {
-  forgotPasswordSchema,
-  type ForgotPasswordFormValues,
+  vendorForgotPasswordSchema,
+  type VendorForgotPasswordFormValues,
 } from "~/features/auth/schemas";
+import type { IdentifierMethod } from "~/features/auth/types";
 
+const METHOD_OPTIONS: { label: string; value: IdentifierMethod }[] = [
+  { label: "Email", value: "email" },
+  { label: "Phone", value: "phone" },
+];
+
+// Forgot password board: lock hero, copy, Email | Phone, "Send password reset
+// code" and "Remembered it? Log in".
 export function ForgotPasswordScreen() {
-  const { mutate: sendReset, isPending } = useForgotPassword();
+  const { mutate: sendCode, isPending } = useCustomerForgotPassword();
 
   const {
     control,
     handleSubmit,
+    setValue,
+    clearErrors,
     formState: { isSubmitting },
-  } = useForm<ForgotPasswordFormValues>({
-    resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: { email: "" },
+  } = useForm<VendorForgotPasswordFormValues>({
+    resolver: zodResolver(vendorForgotPasswordSchema),
+    defaultValues: { method: "email", identifier: "" },
   });
+  const method = useWatch({ control, name: "method" });
+
+  const changeMethod = (next: IdentifierMethod) => {
+    setValue("method", next);
+    setValue("identifier", "");
+    clearErrors("identifier");
+  };
 
   return (
-    <AuthScreen back>
-      <View className="items-center gap-4 pt-2">
-        <HeroBadge icon="lock-closed" />
-        <View className="items-center gap-1">
-          <Text variant="display" className="text-center">
-            Forgot password?
-          </Text>
-          <Text tone="muted" className="text-center">
-            Enter your email and we&apos;ll send you a code to reset it.
-          </Text>
-        </View>
+    <AuthPage back>
+      <View className="mt-6">
+        <StatusHero icon="lock-closed" size={104} core={68} iconSize={30} />
       </View>
 
-      <FormField
-        control={control}
-        name="email"
-        type="email"
-        label="Email"
-        placeholder="you@example.com"
-      />
+      <View className="mt-5">
+        <AuthHeading
+          size="md"
+          title="Forgot password?"
+          subtitle="Enter your email address or phone number to recover your password."
+        />
+      </View>
 
-      <Button
-        onPress={handleSubmit((values) =>
-          sendReset({ identifier: values.email, method: "email" }),
-        )}
-        loading={isPending || isSubmitting}
-      >
-        Send reset code
-      </Button>
+      <View className="mt-[26px] gap-4">
+        <DemoFill
+          label="Fill with demo email"
+          onFill={
+            process.env.EXPO_PUBLIC_DEMO_MODE === "true"
+              ? () => {
+                  setValue("method", "email");
+                  setValue("identifier", "ada@student.edu", {
+                    shouldValidate: true,
+                  });
+                }
+              : undefined
+          }
+        />
+        <PillTabs
+          options={METHOD_OPTIONS}
+          value={method}
+          onChange={changeMethod}
+        />
+        <AuthField
+          key={method}
+          control={control}
+          name="identifier"
+          type={method === "phone" ? "phone" : "email"}
+          label={method === "phone" ? "Phone number" : "Email"}
+          icon={method === "phone" ? "call-outline" : "mail-outline"}
+          placeholder={
+            method === "phone"
+              ? "Enter your phone number"
+              : "johndoe@example.com"
+          }
+          mutedLabel
+        />
+        <Button
+          loading={isPending || isSubmitting}
+          onPress={handleSubmit((values) =>
+            sendCode({
+              identifier: values.identifier.trim(),
+              method: values.method,
+            }),
+          )}
+        >
+          Send password reset code
+        </Button>
+      </View>
 
-      <View className="flex-row items-center justify-center gap-1">
-        <Text variant="label" tone="muted">
-          Remembered it?
+      <View className="mt-auto flex-row flex-wrap items-center justify-center pt-6">
+        <Text tone="muted" className="font-sans-medium text-sm">
+          Remembered it?{" "}
         </Text>
-        <Link href="/(auth)/login">
-          <Text variant="link">Sign in</Text>
-        </Link>
+        <Pressable
+          onPress={() => router.replace("/(auth)/login")}
+          accessibilityRole="link"
+          className="min-h-11 justify-center"
+        >
+          <Text className="font-sans-bold text-sm text-brand-text underline">
+            Log in
+          </Text>
+        </Pressable>
       </View>
-    </AuthScreen>
+    </AuthPage>
   );
 }

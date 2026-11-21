@@ -16,12 +16,12 @@ import { useThemeStore } from "~/lib/stores/theme-store";
 
 // Customer-app copy. The vendor app has its own splash and welcome screens.
 const COPY = {
-  title: "Everything on campus, delivered",
-  body: "Order from your favourite shops and track it to your door.",
+  title: "Everything on campus, in one place.",
+  body: "Order food from vendors at your school and track it to your door.",
 };
 
-// Splash → redirects signed-in users to the tabs, otherwise shows the welcome
-// pitch with a "Get started" CTA into sign-in.
+// Splash → redirects signed-in users to Home, otherwise shows the pitch with a
+// "Get started" CTA into the intro slides.
 export function WelcomeScreen() {
   const isDark = useThemeStore((s) => s.theme) === "dark";
 
@@ -32,7 +32,7 @@ export function WelcomeScreen() {
   useEffect(() => {
     hasToken().then((authenticated) => {
       if (authenticated) {
-        router.replace("/(tabs)");
+        router.replace("/(tabs)/home");
       } else {
         setShowGetStarted(true);
       }
@@ -72,7 +72,7 @@ export function WelcomeScreen() {
             <Text tone="muted">{COPY.body}</Text>
           </View>
 
-          <Button onPress={() => router.replace("/(auth)/login")}>
+          <Button onPress={() => router.replace("/(auth)/intro")}>
             Get started
           </Button>
         </Animated.View>
