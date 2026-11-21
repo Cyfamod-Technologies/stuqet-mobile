@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,7 +17,6 @@ import { Input } from "~/components/ui/input";
 import { ScreenHeader } from "~/components/ui/screen-header";
 import { SegmentedControl } from "~/components/ui/segmented-control";
 import { Skeleton } from "~/components/ui/skeleton";
-import { Text } from "~/components/ui/text";
 import { LISTING_LABELS } from "../constants";
 import {
   useCatalogueCounts,
@@ -64,17 +63,19 @@ export function CatalogueScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // "Add another" on the saved screen comes back here asking for the chooser.
-  useEffect(() => {
-    if (add === "1") {
-      setChooserOpen(true);
-      router.setParams({ add: "" });
-    }
-  }, [add, router]);
+  const chooserVisible = chooserOpen || add === "1";
+  const closeChooser = () => {
+    setChooserOpen(false);
+    if (add === "1") router.setParams({ add: "" });
+  };
 
   const list = useSellerProducts(type, search);
   const counts = useCatalogueCounts();
-  const { mutate: changeStatus, isPending, variables } =
-    useChangeProductStatus();
+  const {
+    mutate: changeStatus,
+    isPending,
+    variables,
+  } = useChangeProductStatus();
 
   const labels = LISTING_LABELS[type];
   const filter = type === "product" ? productFilter : foodFilter;
@@ -107,7 +108,7 @@ export function CatalogueScreen() {
   );
 
   const goToForm = (target: ListingType) => {
-    setChooserOpen(false);
+    closeChooser();
     router.push(
       target === "product" ? "/catalogue/add-product" : "/catalogue/add-food",
     );
@@ -192,7 +193,7 @@ export function CatalogueScreen() {
             size="sm"
             onPress={() => void list.fetchNextPage()}
           >
-            Couldn't load more. Retry
+            {"Couldn't load more. Retry"}
           </Button>
         </View>
       );
@@ -202,10 +203,7 @@ export function CatalogueScreen() {
 
   return (
     <View className="flex-1">
-      <View
-        className="gap-4 px-5 pb-4"
-        style={{ paddingTop: insets.top + 12 }}
-      >
+      <View className="gap-4 px-5 pb-4" style={{ paddingTop: insets.top + 12 }}>
         <ScreenHeader
           title="Catalogue"
           subtitle={catalogueSummary(counts.products, counts.food)}
@@ -241,11 +239,7 @@ export function CatalogueScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Clear search"
                 >
-                  <Ionicons
-                    name="close-circle"
-                    size={20}
-                    color={colors.hint}
-                  />
+                  <Ionicons name="close-circle" size={20} color={colors.hint} />
                 </Pressable>
               ) : undefined
             }
@@ -312,15 +306,17 @@ export function CatalogueScreen() {
 
       <Button
         onPress={() => setChooserOpen(true)}
-        icon={<Ionicons name="add" size={26} color={colors["primary-foreground"]} />}
+        icon={
+          <Ionicons name="add" size={26} color={colors["primary-foreground"]} />
+        }
         className="absolute bottom-5 right-5 min-h-[60px] pl-[18px] pr-6"
       >
         Add
       </Button>
 
       <AddChooserSheet
-        visible={chooserOpen}
-        onClose={() => setChooserOpen(false)}
+        visible={chooserVisible}
+        onClose={closeChooser}
         onChoose={goToForm}
       />
     </View>

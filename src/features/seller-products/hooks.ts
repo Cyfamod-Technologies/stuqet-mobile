@@ -10,13 +10,30 @@ import { handleApiError } from "~/lib/utils/error-handler";
 import { notifyError } from "~/lib/utils/toast";
 import { QUERY_KEYS } from "~/lib/utils/query-keys";
 import SellerProductService from "./api";
-import { getApiMessage, getValidationErrors, isPackageLimitError } from "./errors";
+import {
+  getApiMessage,
+  getValidationErrors,
+  isPackageLimitError,
+} from "./errors";
 import type {
   ChangeStatusInput,
   ListingType,
   SellerProductsPage,
 } from "./types";
 import { flattenCategories } from "./utils";
+
+/** Package-limit failures get a clear message; everything else the default. */
+function reportError(error: unknown) {
+  if (isPackageLimitError(error)) {
+    notifyError({
+      message: "Package limit reached",
+      description:
+        getApiMessage(error) ?? "Please upgrade your package to continue.",
+    });
+    return;
+  }
+  handleApiError(error);
+}
 
 /** Value that only updates after `delay` ms without changes (search box). */
 export function useDebouncedValue<T>(value: T, delay = 400): T {
@@ -89,19 +106,21 @@ export function useProductCategories() {
   });
 }
 
-function isInfinite(
-  data: unknown,
-): data is InfiniteData<SellerProductsPage> {
+function isInfinite(data: unknown): data is InfiniteData<SellerProductsPage> {
   return Boolean(
-    data && typeof data === "object" && "pages" in data &&
-      Array.isArray((data as { pages: unknown }).pages),
+    data &&
+    typeof data === "object" &&
+    "pages" in data &&
+    Array.isArray((data as { pages: unknown }).pages),
   );
 }
 
 function isPage(data: unknown): data is SellerProductsPage {
   return Boolean(
-    data && typeof data === "object" && "data" in data &&
-      Array.isArray((data as { data: unknown }).data),
+    data &&
+    typeof data === "object" &&
+    "data" in data &&
+    Array.isArray((data as { data: unknown }).data),
   );
 }
 
@@ -138,8 +157,9 @@ export function useChangeProductStatus() {
       const previous = queryClient.getQueriesData<unknown>({
         queryKey: listKey,
       });
-      queryClient.setQueriesData<unknown>({ queryKey: listKey }, (old) =>
-        patchCache(old, input),
+      queryClient.setQueriesData<unknown>(
+        { queryKey: listKey },
+        (old: unknown) => patchCache(old, input),
       );
       return { previous };
     },
@@ -147,15 +167,7 @@ export function useChangeProductStatus() {
       context?.previous.forEach(([key, data]) =>
         queryClient.setQueryData(key, data),
       );
-      if (isPackageLimitError(error)) {
-        notifyError({
-          message: "Package limit reached",
-          description:
-            getApiMessage(error) ?? "Please upgrade your package to continue.",
-        });
-        return;
-      }
-      handleApiError(error);
+      reportError(error);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
   });
@@ -176,15 +188,7 @@ export function useCreateProduct() {
       }),
     onError: (error) => {
       if (getValidationErrors(error)) return;
-      if (isPackageLimitError(error)) {
-        notifyError({
-          message: "Package limit reached",
-          description:
-            getApiMessage(error) ?? "Please upgrade your package to continue.",
-        });
-        return;
-      }
-      handleApiError(error);
+      reportError(error);
     },
   });
 }

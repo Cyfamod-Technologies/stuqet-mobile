@@ -50,11 +50,7 @@ export function AddProductScreen() {
     if (blockedByPhotos) return;
     setServerNotice([]);
     createProduct(buildProductPayload(values, uploads.uploadedIds), {
-      onSuccess: () =>
-        router.replace({
-          pathname: "/catalogue/saved",
-          params: { type: "product" },
-        }),
+      onSuccess: () => router.replace("/catalogue/saved"),
       onError: (error) => {
         const errors = getValidationErrors(error);
         if (!errors) return;

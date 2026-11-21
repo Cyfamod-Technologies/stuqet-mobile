@@ -1,10 +1,5 @@
-import { Screen } from "~/components/screen";
-import { Text } from "~/components/ui/text";
+import { CatalogueScreen } from "~/features/seller-products/components/catalogue-screen";
 
-export default function CatalogueScreen() {
-  return (
-    <Screen>
-      <Text variant="display">Catalogue</Text>
-    </Screen>
-  );
+export default function CatalogueRoute() {
+  return <CatalogueScreen />;
 }
