@@ -86,7 +86,7 @@ board): background `#14100C`, field `#1E1812`, ink `#F7F2EC`, brand text
 Shadows can't be theme variables on React Native, so they are constants in
 `src/lib/colors.ts` (`SHADOWS.field`, `SHADOWS.button`, `SHADOWS.glow`) passed
 via `style`. Also `SHADOWS.pill` (selected segment), `thumb`, `bar` (tab/action
-bars) and `sheet`.
+bars), `sheet` and `toast` (floating notifications).
 
 States: focus → 1.5px `primary` border; error → 1.5px `destructive-text` border +
 `destructive-text` message (13px semibold); verified → green check inside the field; locked (`editable={false}`) →
@@ -110,6 +110,7 @@ States: focus → 1.5px `primary` border; error → 1.5px `destructive-text` bor
 | `OtpInput`                                          | N boxes driven by one hidden input (paste + autofill work)                                                                                            |
 | `SocialButton`                                      | `provider="google" \| "apple"` white pill                                                                                                             |
 | `Notice`                                            | inline banner: `info`, `success`, `warning`, `error`                                                                                                  |
+| `ToastHost`                                         | the floating notification layer, mounted once per root layout; see "Notifications (toasts)"                                                           |
 | `DividerLabel`                                      | "—— Or ——" separator                                                                                                                                  |
 | `BackButton`                                        | 44px round white button                                                                                                                               |
 | `StepProgress`                                      | "Step 2 of 3" segmented bar for wizards                                                                                                               |
@@ -180,6 +181,92 @@ respects the phone's "Reduce motion" setting.
 How a screen loads and how screens navigate is not animated here; that belongs
 to the navigation layer (stacks, tabs, splash) and must not be changed from
 feature code. Do not add entrance animations to whole screens or list rows.
+
+## Notifications (toasts)
+
+Non-blocking, in-app messages. Show one with `notifySuccess`, `notifyError`,
+`notifyInfo` or `notifyWarning` from `~/lib/utils/toast`, all
+`({ message, description? })`. They work anywhere (components, mutation
+callbacks, axios interceptors) because they write to a module-level Zustand
+store (`src/lib/stores/toast-store.ts`); `ToastHost`
+(`src/components/ui/toast.tsx`) renders it and is mounted once, last, in both
+root layouts, so it draws above the navigators, the offline banner and the DEBUG
+pill.
+
+### Anatomy
+
+Floating card pinned to the **top**, `safe-area top + 8px` down, 16px from each
+side, stacked with an 8px gap.
+
+| Part        | Spec                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------ |
+| Surface     | `bg-card`, `rounded-2xl`, 1px `border-strong`, `SHADOWS.toast`                       |
+| Accent      | 4px bar on the left edge: `success` / `destructive` / `primary` / `warning`          |
+| Icon tile   | 40px `rounded-tile`, status tint fill, 22px icon in the matching `-text` colour      |
+| Title       | `message`, Urbanist bold 15/20, max 2 lines (ellipsis)                               |
+| Description | `description`, `meta` style (13/18 muted), max 2 lines                               |
+| Dismiss     | 18px close glyph in a 44px target; the whole card is also tappable (min height 64px) |
+
+Why the top: the bottom is where the tab bar, the pinned action bars and the
+DEBUG pill live, and a toast there would cover the primary action of the screen
+(Save, Withdraw, Submit). The top only covers the screen header, which is
+never the thing the user is acting on, and it is dismissible with a swipe.
+
+### Variants and timing
+
+| Variant   | Icon                 | Accent / tint    | Use                                                | Stays up |
+| --------- | -------------------- | ---------------- | -------------------------------------------------- | -------- |
+| `success` | `checkmark-circle`   | success          | The thing the user just did worked                 | 3.5s     |
+| `info`    | `information-circle` | primary / `tint` | Neutral news ("coming soon", "connection is back") | 3.5s     |
+| `warning` | `warning`            | warning          | Works, but something needs attention               | 5s       |
+| `error`   | `alert-circle`       | destructive      | It failed and the user can retry                   | 5s       |
+
+A description adds 1.5s. Errors and warnings use an assertive live region,
+the others polite; every toast has `accessibilityRole="alert"`, is announced on
+iOS with `AccessibilityInfo.announceForAccessibility`, and exposes a `dismiss`
+accessibility action.
+
+### Behaviour
+
+- **Auto-dismiss** after the time above. The timer **pauses while the card is
+  touched or dragged** and resumes with the time left.
+- **Dismiss** by tapping the card or the close glyph, or by swiping it up or
+  sideways. Dragging down is resisted.
+- **Stack:** newest on top, at most 3 visible (the oldest is dropped). Showing
+  an identical toast (same variant, message and description) that is already on
+  screen refreshes it in place instead of stacking a duplicate, so five failing
+  queries show one "No connection".
+- **Long text** never grows the card: titles and descriptions clamp to two
+  lines, and the store caps the strings (140 / 280 characters) and collapses
+  whitespace.
+- **Motion:** the card slides down and fades in (260ms), leaves upward (180ms),
+  and the others glide to their new place. All of it is off with "Reduce
+  motion". It animates only the toast; it never touches how screens load or
+  navigate.
+
+### Toast, Alert or inline error?
+
+| Situation                                                            | Use                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------ |
+| Result of an action, nothing more to decide ("Payout details saved") | Toast (`notifySuccess`)                                |
+| A request failed and the screen is still usable ("No connection")    | Toast (`notifyError`), or the screen's retry state     |
+| A passing heads-up ("Google sign-in is coming soon")                 | Toast (`notifyInfo` / `notifyWarning`)                 |
+| The user must choose (log out, reset data, discard changes)          | Native `Alert.alert` with buttons; never a toast       |
+| A field is wrong, or the form cannot be submitted                    | Inline error under the field or a `Notice` in the form |
+| State that must stay visible (account under review, session expired) | `Notice` / a status screen, not a toast                |
+
+Keep copy short and human: the `message` is a headline ("No connection", "Order
+accepted"), the optional `description` is what to do next. Don't put a toast and
+an inline error on the same failure.
+
+### Known limits
+
+- Toasts are an ordinary view in the root layout, so a native `Modal` (the
+  bottom sheet, the DEBUG inspector, the force-update modal) draws **over** them.
+  Fire the toast after the sheet closes, or show the message inside the sheet.
+- In development, React Native's own LogBox toast (white, bottom) and, in Expo
+  Go, the floating gear button are separate native layers and are not part of
+  this system.
 
 ## Adding to the system
 

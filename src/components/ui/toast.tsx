@@ -212,7 +212,7 @@ const ToastCard = memo(function ToastCard({
           {/* Shadow lives on the outer view; the inner one clips the accent. */}
           <View
             style={SHADOWS.toast}
-            className="rounded-2xl border border-border bg-card"
+            className="rounded-2xl border border-border-strong bg-card"
           >
             <View className="overflow-hidden rounded-2xl">
               <View

@@ -61,7 +61,8 @@ Each app's root layout is its composition root. It:
 - Hydrates the persisted theme (`useThemeStore`) and applies the theme's CSS
   variables to a root `View` (`darkThemeVars` / `lightThemeVars`).
 - Renders the router `<Slot />` alongside cross-cutting UI: `OfflineBanner`,
-  `ForceUpdateModal`, `OTAUpdateHandler`, and the `DebugOverlay` (when enabled).
+  `ForceUpdateModal`, `OTAUpdateHandler`, the `DebugOverlay` (when enabled) and,
+  last so it sits on top, the `ToastHost`.
 
 ## State & data architecture
 
@@ -153,6 +154,12 @@ component needs a runtime color value (e.g. an icon `color` prop).
   wire up the `/get-app-version` endpoint and set your store URLs.
 - **Offline banner** — `OfflineBanner` surfaces connectivity loss via
   `@react-native-community/netinfo`.
+- **In-app notifications** — `notifySuccess` / `notifyError` / `notifyInfo` /
+  `notifyWarning` (`src/lib/utils/toast.ts`) push into a module-level Zustand
+  store (`src/lib/stores/toast-store.ts`), so axios interceptors and mutation
+  callbacks can use them without a hook; `ToastHost` renders them. Blocking
+  choices stay native `Alert.alert`. See "Notifications (toasts)" in
+  [DESIGN.md](./DESIGN.md).
 
 See [folder-structure.md](./folder-structure.md) for the full layout,
 [code-style.md](./code-style.md) for conventions, and [dev.md](./dev.md) for the
