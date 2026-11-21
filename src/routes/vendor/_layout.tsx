@@ -26,9 +26,12 @@ import { useThemeStore } from "~/lib/stores/theme-store";
 import { darkThemeVars, lightThemeVars } from "~/lib/theme-vars";
 import { Backdrop } from "~/components/backdrop";
 import { useThemeColors } from "~/lib/colors";
+import { registerSessionExpiryHandler } from "~/features/auth/session-expiry";
 
 SplashScreen.preventAutoHideAsync();
 initSentry();
+// A 401 on an authenticated request lands on the "Session expired" screen.
+registerSessionExpiryHandler();
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

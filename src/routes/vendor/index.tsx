@@ -1,1 +1,1 @@
-export { WelcomeScreen as default } from "~/features/auth/screens/welcome-screen";
+export { VendorSplashScreen as default } from "~/features/auth/screens/vendor-splash-screen";

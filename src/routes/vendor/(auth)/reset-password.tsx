@@ -1,1 +1,1 @@
-export { ResetPasswordScreen as default } from "~/features/auth/screens/reset-password-screen";
+export { VendorResetPasswordScreen as default } from "~/features/auth/screens/vendor-reset-password-screen";
